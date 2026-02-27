@@ -1,0 +1,19 @@
+{
+  "name": "Tanners Horizon Tuner",
+  "short_name": "HZN Tuner",
+  "description": "Forza Horizon 5 tune calculator with adaptive learning",
+  "start_url": "/TannersForzaTuner/",
+  "scope": "/TannersForzaTuner/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#04050a",
+  "theme_color": "#04050a",
+  "icons": [
+    {
+      "src": "icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
