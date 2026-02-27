@@ -1,0 +1,3440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tanners Horizon Tuner v21</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=JetBrains+Mono:wght@400;600;700&family=Barlow+Condensed:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --red: #ff1e1e;
+  --orange: #ff6a00;
+  --amber: #ffb300;
+  --cyan: #00e5ff;
+  --bg: #04050a;
+  --surface: #0a0c14;
+  --surface2: #111420;
+  --border: rgba(255,255,255,0.06);
+  --text: #f0f0f0;
+  --text-dim: #5a6070;
+  --font-display: 'Bebas Neue', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --font-body: 'Barlow Condensed', sans-serif;
+  /* Theme accent — driven by color picker */
+  --accent: #ff1e1e;
+  --accent2: #ff6a00;
+  --accent3: #ffb300;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body { background: var(--bg); color: var(--text); font-family: var(--font-body); min-height: 100vh; overflow-x: hidden; cursor: crosshair; -webkit-tap-highlight-color: transparent; }
+.pill, .side-tab, .home-btn, .btn-generate, .header-btn, .btn-back, .check-item, .lib-btn, .lib-build-row { touch-action: manipulation; }
+
+#smokeCanvas { position: fixed; inset: 0; pointer-events: none; z-index: 0; opacity: 0.85; }
+#tiremarksCanvas { position: fixed; inset: 0; pointer-events: none; z-index: 1; opacity: 0.15; }
+.chroma { position: fixed; inset: 0; pointer-events: none; z-index: 2; background: repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(255,30,30,0.012) 3px,rgba(255,30,30,0.012) 4px); mix-blend-mode: screen; }
+.vignette { position: fixed; inset: 0; pointer-events: none; z-index: 3; background: radial-gradient(ellipse at center,transparent 40%,rgba(0,0,0,0.88) 100%); }
+.ui-layer { position: relative; z-index: 10; }
+
+header {
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  padding: 0 24px 0 16px;
+  display: flex; align-items: center; gap: 16px;
+  height: 58px;
+  background: rgba(6,7,14,0.92);
+  backdrop-filter: blur(24px);
+  position: sticky; top: 0; z-index: 100;
+  overflow: hidden;
+}
+header::after {
+  content: '';
+  position: absolute; bottom: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg,transparent,var(--accent),var(--accent2),var(--accent3),var(--accent),transparent);
+  background-size: 200% 100%;
+  animation: shimmer 3s linear infinite;
+  opacity: 0.7;
+}
+@keyframes shimmer { 0%{background-position:-200% 0} 100%{background-position:200% 0} }
+
+.logo {
+  font-family: var(--font-display);
+  font-size: 22px; letter-spacing: 5px;
+  background: linear-gradient(90deg,var(--accent),var(--accent2),var(--accent3));
+  background-size: 300% 100%;
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+  animation: logoShift 4s ease-in-out infinite alternate;
+  filter: drop-shadow(0 0 12px rgba(255,30,30,0.5));
+  white-space: nowrap;
+}
+@keyframes logoShift {
+  0% { background-position: 0% 0; }
+  50% { background-position: 100% 0; }
+  100% { background-position: 200% 0; }
+}
+.logo-sub { font-family: var(--font-mono); font-size: 10px; color: var(--text-dim); letter-spacing: 3px; text-transform: uppercase; border-left: 1px solid rgba(255,30,30,0.3); padding-left: 24px; }
+.rpm-bar { margin-left: auto; display: flex; gap: 3px; align-items: flex-end; height: 32px; }
+.rpm-seg { width: 6px; border-radius: 1px; animation: rpmPulse var(--d,0.8s) ease-in-out infinite alternate; }
+@keyframes rpmPulse { from{transform:scaleY(0.2);opacity:0.3} to{transform:scaleY(1);opacity:1} }
+
+.main { display: grid; grid-template-columns: 300px 1fr; min-height: calc(100vh - 58px); }
+
+.panel-left {
+  background: rgba(7,8,16,0.9);
+  backdrop-filter: blur(16px);
+  border-right: 1px solid rgba(255,255,255,0.05);
+  padding: 0;
+  display: flex; flex-direction: column;
+  position: relative; overflow: hidden;
+  /* Desktop: fill the viewport height so footer sticks to bottom */
+  height: calc(100vh - 58px);
+  position: sticky; top: 58px;
+  align-self: start;
+}
+.panel-left::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 180px;
+  background: radial-gradient(ellipse at 50% -20%, rgba(255,30,30,0.07), transparent 70%);
+  pointer-events: none;
+}
+
+/* Side nav tabs */
+.side-nav {
+  display: flex; flex-direction: column; gap: 2px;
+  padding: 12px 10px; border-bottom: 1px solid rgba(255,255,255,0.04);
+  background: rgba(0,0,0,0.2);
+}
+.side-nav-tabs {
+  display: grid; grid-template-columns: 1fr 1fr 1fr;
+  gap: 4px;
+}
+.side-tab {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 4px; padding: 10px 6px;
+  background: transparent; border: 1px solid transparent;
+  cursor: pointer; transition: all 0.2s; border-radius: 4px;
+  font-family: var(--font-mono); font-size: 8px; letter-spacing: 1.5px;
+  text-transform: uppercase; color: var(--text-dim); user-select: none;
+}
+.side-tab-icon { font-size: 15px; line-height: 1; }
+.side-tab:hover { background: rgba(255,255,255,0.04); color: var(--text); border-color: rgba(255,255,255,0.06); }
+.side-tab.active {
+  background: rgba(255,30,30,0.08);
+  border-color: rgba(255,30,30,0.25);
+  color: var(--accent);
+  box-shadow: 0 0 16px rgba(255,30,30,0.08), inset 0 0 12px rgba(255,30,30,0.04);
+}
+
+/* Panel sections inside left */
+.panel-section { display: none; flex: 1; overflow-y: auto; overflow-x: hidden; padding: 20px 18px; flex-direction: column; gap: 18px; }
+.panel-section.active { display: flex; }
+.panel-section::-webkit-scrollbar { width: 3px; }
+.panel-section::-webkit-scrollbar-thumb { background: rgba(255,30,30,0.2); border-radius: 2px; }
+
+.panel-footer { padding: 14px 18px; border-top: 1px solid rgba(255,255,255,0.04); background: rgba(0,0,0,0.15); flex-shrink: 0; }
+
+.section-label {
+  font-family: var(--font-mono); font-size: 9px; letter-spacing: 4px; text-transform: uppercase;
+  color: var(--accent); margin-bottom: 10px;
+  display: flex; align-items: center; gap: 10px;
+}
+.section-label::after { content:''; flex:1; height:1px; background:linear-gradient(90deg,rgba(255,30,30,0.3),transparent); }
+
+.field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+.field label { font-size: 10px; font-weight: 600; color: var(--text-dim); text-transform: uppercase; letter-spacing: 2px; }
+.field input, .field select {
+  background: rgba(17,20,32,0.92); border: 1px solid rgba(255,30,30,0.18);
+  color: var(--text); font-family: var(--font-body); font-size: 15px; font-weight: 500;
+  padding: 11px 14px; outline: none; transition: all 0.2s; appearance: none; width: 100%; letter-spacing: 1px;
+}
+.field input:focus, .field select:focus { border-color: var(--red); box-shadow: 0 0 0 2px rgba(255,30,30,0.08), 0 0 20px rgba(255,30,30,0.12); background: rgba(255,30,30,0.04); }
+.field input::placeholder { color: var(--text-dim); }
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+.discipline-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.drive-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+
+.pill {
+  background: rgba(17,20,32,0.92); border: 1px solid rgba(255,255,255,0.05);
+  color: var(--text-dim); font-family: var(--font-mono); font-size: 10px;
+  letter-spacing: 2px; text-transform: uppercase; padding: 11px 8px;
+  text-align: center; cursor: pointer; transition: all 0.2s; user-select: none;
+  position: relative; overflow: hidden;
+}
+.pill:hover { border-color: rgba(255,30,30,0.4); color: var(--text); }
+.pill.active { background: rgba(255,30,30,0.1); border-color: var(--accent); color: var(--accent); box-shadow: 0 0 20px rgba(255,30,30,0.15), inset 0 0 20px rgba(255,30,30,0.04); text-shadow: 0 0 10px rgba(255,30,30,0.7); }
+
+.btn-generate {
+  background: linear-gradient(135deg,var(--accent),var(--accent2));
+  color: #fff; font-family: var(--font-display); font-size: 20px; letter-spacing: 4px;
+  border: none; padding: 16px; cursor: pointer; width: 100%;
+  transition: all 0.2s; position: relative; overflow: hidden;
+  text-shadow: 0 0 20px rgba(255,255,255,0.4);
+  box-shadow: 0 0 24px rgba(255,30,30,0.25);
+  border-radius: 2px;
+}
+.btn-generate::before {
+  content:''; position:absolute; top:-50%; left:-100%; width:60%; height:200%;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,0.22),transparent);
+  transform:skewX(-20deg); animation:btnShine 3s ease-in-out infinite;
+}
+@keyframes btnShine { 0%{left:-100%} 40%,100%{left:150%} }
+.btn-generate:hover { box-shadow:0 0 50px rgba(255,30,30,0.6),0 0 100px rgba(255,106,0,0.25); transform:translateY(-2px); filter:brightness(1.15); }
+.btn-generate:active { transform:translateY(0); }
+
+.divider { height:1px; background:linear-gradient(90deg,transparent,rgba(255,30,30,0.18),transparent); margin:2px 0; }
+
+.panel-right { padding: 28px 32px; display: flex; flex-direction: column; gap: 24px; overflow-y: auto; background: rgba(4,5,10,0.35); backdrop-filter: blur(8px); }
+
+.empty-state { display:flex; flex-direction:column; align-items:center; justify-content:center; flex:1; height:100%; gap:20px; padding:80px 0; }
+.empty-icon { font-family:var(--font-display); font-size:120px; letter-spacing:8px; background:linear-gradient(180deg,rgba(255,30,30,0.65),rgba(255,30,30,0.04)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; animation:floatPulse 3s ease-in-out infinite; line-height:1; }
+@keyframes floatPulse { 0%,100%{transform:translateY(0);filter:drop-shadow(0 0 30px rgba(255,30,30,0.4))} 50%{transform:translateY(-10px);filter:drop-shadow(0 0 60px rgba(255,30,30,0.75))} }
+.empty-text { font-family:var(--font-mono); font-size:11px; letter-spacing:4px; color:var(--text-dim); text-transform:uppercase; animation:blinkText 2s step-end infinite; }
+@keyframes blinkText { 0%,100%{opacity:1} 50%{opacity:0.25} }
+
+.tune-header { display:flex; align-items:baseline; gap:20px; border-bottom:1px solid rgba(255,30,30,0.12); padding-bottom:20px; flex-wrap:wrap; }
+.tune-car-name { font-family:var(--font-display); font-size:52px; letter-spacing:3px; line-height:1; background:linear-gradient(90deg,#fff,rgba(255,255,255,0.65)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; filter:drop-shadow(0 0 20px rgba(255,255,255,0.18)); }
+.tune-meta { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+
+.badge { font-family:var(--font-mono); font-size:10px; letter-spacing:2px; text-transform:uppercase; padding:5px 12px; border:1px solid; }
+.badge-red { border-color:var(--red); color:var(--red); background:rgba(255,30,30,0.07); text-shadow:0 0 10px rgba(255,30,30,0.5); animation:badgePulse 2.5s ease-in-out infinite; }
+@keyframes badgePulse { 0%,100%{box-shadow:0 0 8px rgba(255,30,30,0.1)} 50%{box-shadow:0 0 20px rgba(255,30,30,0.3)} }
+.badge-amber { border-color:var(--amber); color:var(--amber); background:rgba(255,179,0,0.07); text-shadow:0 0 8px rgba(255,179,0,0.4); }
+.badge-dim { border-color:var(--border); color:var(--text-dim); }
+.badge-pi { border-color:rgba(0,229,255,0.4); color:var(--cyan); background:rgba(0,229,255,0.07); text-shadow:0 0 8px rgba(0,229,255,0.4); }
+
+.tune-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px; }
+
+.tune-card {
+  background: rgba(10,12,20,0.88); border:1px solid rgba(255,30,30,0.12);
+  padding:20px; position:relative; overflow:hidden;
+  animation: cardIn 0.5s cubic-bezier(0.16,1,0.3,1) both;
+  transition: border-color 0.3s, box-shadow 0.3s, transform 0.2s;
+}
+.tune-card:hover { border-color:rgba(255,30,30,0.35); box-shadow:0 0 30px rgba(255,30,30,0.07); transform:translateY(-2px); }
+.tune-card::before { content:''; position:absolute; top:0;left:0;right:0; height:2px; background:linear-gradient(90deg,var(--red),var(--orange)); box-shadow:0 0 10px var(--red); }
+.tune-card::after { content:''; position:absolute; bottom:0;right:0; width:60px;height:60px; background:radial-gradient(circle,rgba(255,30,30,0.05),transparent 70%); pointer-events:none; }
+
+@keyframes cardIn { from{opacity:0;transform:translateY(16px) scale(0.97)} to{opacity:1;transform:translateY(0) scale(1)} }
+.tune-card:nth-child(1){animation-delay:0s} .tune-card:nth-child(2){animation-delay:.06s} .tune-card:nth-child(3){animation-delay:.12s}
+.tune-card:nth-child(4){animation-delay:.18s} .tune-card:nth-child(5){animation-delay:.24s} .tune-card:nth-child(6){animation-delay:.30s}
+
+.tune-card-title { font-family:var(--font-mono); font-size:9px; letter-spacing:4px; text-transform:uppercase; color:var(--red); margin-bottom:16px; text-shadow:0 0 10px rgba(255,30,30,0.4); }
+.tune-row { display:flex; justify-content:space-between; align-items:baseline; padding:7px 0; border-bottom:1px solid rgba(255,255,255,0.035); }
+.tune-row:last-child{border-bottom:none}
+.tune-key { font-size:12px; color:var(--text-dim); font-weight:400; letter-spacing:0.5px; }
+.tune-val { font-family:var(--font-mono); font-size:13px; font-weight:700; color:var(--text); letter-spacing:1px; }
+.tune-val.highlight { color:var(--amber); text-shadow:0 0 10px rgba(255,179,0,0.45); }
+
+.learn-state { background:rgba(10,12,20,0.92); border:1px solid rgba(255,179,0,0.12); padding:18px 20px; position:relative; overflow:hidden; animation:cardIn 0.5s ease both; }
+.learn-state::before { content:''; position:absolute; top:0;left:0;right:0;height:1px; background:linear-gradient(90deg,transparent,var(--amber),transparent); opacity:0.4; }
+.learn-state-title { font-family:var(--font-mono); font-size:9px; letter-spacing:4px; text-transform:uppercase; color:var(--amber); margin-bottom:14px; text-shadow:0 0 8px rgba(255,179,0,0.35); }
+.learn-bars { display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; }
+.learn-bar-row { display:flex; flex-direction:column; gap:5px; }
+.learn-bar-label { display:flex; justify-content:space-between; font-size:11px; color:var(--text-dim); letter-spacing:1px; }
+.learn-bar-label span:last-child { font-family:var(--font-mono); color:var(--amber); font-size:10px; text-shadow:0 0 6px rgba(255,179,0,0.35); }
+.learn-bar-track { height:4px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.04); position:relative; overflow:hidden; }
+.learn-bar-fill { position:absolute; top:-1px; height:6px; background:linear-gradient(90deg,var(--amber),var(--orange)); transition:all 0.6s cubic-bezier(0.16,1,0.3,1); box-shadow:0 0 8px rgba(255,179,0,0.55); }
+
+.feedback-panel { background:rgba(10,12,20,0.88); border:1px solid rgba(255,30,30,0.12); padding:28px; position:relative; overflow:hidden; animation:cardIn 0.5s ease 0.35s both; }
+.feedback-panel::before { content:'FEEDBACK'; position:absolute; right:-10px;top:20px; font-family:var(--font-display); font-size:80px; color:rgba(255,30,30,0.035); letter-spacing:4px; pointer-events:none; user-select:none; }
+.feedback-title { font-family:var(--font-display); font-size:28px; letter-spacing:3px; background:linear-gradient(90deg,var(--text),rgba(255,255,255,0.55)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; margin-bottom:6px; }
+.feedback-sub { font-size:13px; color:var(--text-dim); margin-bottom:24px; letter-spacing:0.5px; }
+.feedback-grid { display:grid; grid-template-columns:1fr 1fr; gap:24px; margin-bottom:24px; }
+.slider-group { display:flex; flex-direction:column; gap:10px; }
+.slider-label-center { font-family:var(--font-mono); font-size:11px; color:var(--text); letter-spacing:2px; text-transform:uppercase; }
+.slider-labels { display:flex; justify-content:space-between; font-family:var(--font-mono); font-size:9px; color:var(--text-dim); letter-spacing:1px; text-transform:uppercase; }
+
+input[type="range"] { -webkit-appearance:none; appearance:none; width:100%; height:3px; background:rgba(255,255,255,0.06); border:none; outline:none; cursor:pointer; }
+input[type="range"]::-webkit-slider-thumb { -webkit-appearance:none; width:18px;height:18px; background:linear-gradient(135deg,var(--red),var(--orange)); border:2px solid var(--bg); border-radius:50%; cursor:pointer; box-shadow:0 0 14px rgba(255,30,30,0.7); transition:box-shadow 0.2s; }
+input[type="range"]::-webkit-slider-thumb:hover { box-shadow:0 0 24px rgba(255,30,30,1),0 0 48px rgba(255,106,0,0.5); }
+
+.check-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:24px; }
+.check-item { display:flex; align-items:center; gap:12px; background:rgba(17,20,32,0.92); border:1px solid rgba(255,255,255,0.05); padding:14px; cursor:pointer; transition:all 0.2s; position:relative; overflow:hidden; }
+.check-item:hover { border-color:rgba(255,30,30,0.3); }
+.check-item.checked { border-color:var(--red); background:rgba(255,30,30,0.05); box-shadow:0 0 15px rgba(255,30,30,0.07); }
+.check-box { width:20px;height:20px; border:1px solid rgba(255,255,255,0.13); flex-shrink:0; display:flex; align-items:center; justify-content:center; transition:all 0.15s; font-size:12px; }
+.check-item.checked .check-box { background:var(--red); border-color:var(--red); box-shadow:0 0 10px rgba(255,30,30,0.55); }
+.check-box::after { content:'✓'; color:#fff; opacity:0; transition:opacity 0.1s; }
+.check-item.checked .check-box::after { opacity:1; }
+.check-text { font-size:13px; font-weight:600; letter-spacing:0.5px; }
+.check-sub { font-size:11px; color:var(--text-dim); margin-top:2px; }
+
+.slider-val-display { text-align:center; font-family:var(--font-mono); font-size:11px; color:var(--text); letter-spacing:1px; min-height:16px; }
+
+.btn-feedback { background:transparent; border:1px solid rgba(255,30,30,0.35); color:var(--red); font-family:var(--font-display); font-size:20px; letter-spacing:4px; padding:16px 32px; cursor:pointer; transition:all 0.2s; width:100%; position:relative; overflow:hidden; text-shadow:0 0 10px rgba(255,30,30,0.45); }
+.btn-feedback:hover { background:rgba(255,30,30,0.07); box-shadow:0 0 30px rgba(255,30,30,0.18),inset 0 0 30px rgba(255,30,30,0.04); border-color:var(--red); }
+.btn-feedback.has-manual-edit { border-color:var(--amber); color:var(--amber); text-shadow:0 0 10px rgba(255,179,0,0.45); box-shadow:0 0 18px rgba(255,179,0,0.12); }
+
+.iteration-badge { display:inline-flex; align-items:center; gap:6px; font-family:var(--font-mono); font-size:10px; color:var(--text-dim); letter-spacing:1px; }
+.iteration-dot { width:7px;height:7px; background:#22c55e; border-radius:50%; box-shadow:0 0 8px #22c55e; animation:pulse 1.5s ease-in-out infinite; }
+@keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.4;transform:scale(0.75)} }
+
+.speed-flash { position:fixed; inset:0; pointer-events:none; z-index:999; opacity:0; }
+.speed-flash.active { animation:speedFlash 0.5s ease-out forwards; }
+@keyframes speedFlash { 0%{opacity:0;background:rgba(255,30,30,0.06)} 20%{opacity:1} 100%{opacity:0;background:rgba(255,106,0,0)} }
+
+/* Changed value flash */
+@keyframes valueChanged {
+  0%   { background:rgba(0,229,255,0.25); color:var(--cyan); box-shadow:0 0 16px rgba(0,229,255,0.6); border-bottom-color:var(--cyan); }
+  60%  { background:rgba(0,229,255,0.08); color:var(--cyan); }
+  100% { background:transparent; color:var(--text); box-shadow:none; border-bottom-color:var(--red); }
+}
+.tune-val-input.val-changed { animation: valueChanged 1.4s ease-out forwards; }
+.tune-val-input.highlight.val-changed { animation: valueChanged 1.4s ease-out forwards; color:var(--cyan); }
+
+/* ── Tablet (≤900px) ───────────────────────────────────────────────────────── */
+@media(max-width:900px){
+  .main { grid-template-columns: 1fr; min-height: unset; }
+  .tune-grid { grid-template-columns: 1fr 1fr; }
+  .panel-left { border-right: none; border-bottom: 1px solid rgba(255,255,255,0.06); max-height: none; }
+  .panel-section { max-height: none; overflow-y: visible; }
+}
+
+/* ── Mobile (≤600px) ───────────────────────────────────────────────────────── */
+@media(max-width:600px){
+  header { padding: 0 10px; height: 52px; gap: 8px; overflow: visible; }
+  .logo { font-size: 14px; letter-spacing: 2px; }
+  .rpm-bar { display: none; }
+  .header-btn { font-size: 9px; letter-spacing: 1px; padding: 6px 10px; }
+  .btn-back { padding: 6px 10px; font-size: 9px; }
+  .main { grid-template-columns: 1fr; min-height: unset; }
+  .panel-left { height: auto; position: relative; top: auto; border-right: none; border-bottom: 1px solid rgba(255,255,255,0.06); }
+  .panel-section { padding: 16px 14px; gap: 14px; overflow-y: visible; max-height: none; flex: unset; }
+  .side-nav { padding: 8px; }
+  .side-nav-tabs { gap: 6px; }
+  .side-tab { padding: 12px 8px; font-size: 9px; gap: 3px; }
+  .side-tab-icon { font-size: 18px; }
+  .field input, .field select { font-size: 16px; padding: 13px 12px; }
+  .pill { padding: 14px 8px; font-size: 10px; min-height: 44px; }
+  .rh-input { font-size: 14px; width: 6ch; padding: 4px 2px; }
+  .panel-footer { padding: 12px 14px; position: sticky; bottom: 0; z-index: 10; background: rgba(7,8,16,0.97); }
+  .btn-generate { font-size: 18px; padding: 15px; }
+  .panel-right { padding: 16px 14px; gap: 16px; }
+  .tune-grid { grid-template-columns: 1fr; gap: 10px; }
+  .tune-car-name { font-size: 32px; }
+  .tune-header { padding-bottom: 14px; gap: 12px; }
+  .feedback-grid { grid-template-columns: 1fr; gap: 16px; }
+  .check-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .check-item { padding: 10px; }
+  .check-text { font-size: 12px; }
+  .check-sub { font-size: 10px; }
+  .learn-bars { grid-template-columns: 1fr; gap: 10px; }
+  .gear-grid { grid-template-columns: repeat(4, 1fr); gap: 4px; }
+  .gear-bar-wrap { height: 52px; }
+  .home-logo { font-size: clamp(48px, 14vw, 90px); }
+  .home-actions { flex-direction: column; gap: 12px; width: 100%; max-width: 320px; }
+  .home-btn { padding: 24px 32px; min-width: unset; width: 100%; flex-direction: row; justify-content: flex-start; gap: 16px; }
+  .home-btn-label { font-size: 22px; }
+  .home-credits { bottom: 16px; right: 16px; }
+  .lib-drawer { width: 100% !important; }
+  .lib-drawer-header { padding: 20px 18px 16px; }
+  .lib-body { padding: 14px 16px; }
+  .lib-save-row { padding: 12px 16px; }
+  #themeDrawer { width: 100% !important; }
+  .tune-val-wrap { padding: 4px 0; }
+  .tune-val-input { font-size: 14px; width: 7ch; }
+  .empty-icon { font-size: 80px; }
+  .empty-text { font-size: 10px; }
+}
+
+/* ── Inline Editable Values ── */
+.tune-val-wrap { display:flex; align-items:baseline; gap:4px; cursor:text; position:relative; }
+.tune-val-wrap:hover .tune-val { text-decoration:underline dotted rgba(255,255,255,0.25); }
+.tune-val-input {
+  font-family:var(--font-mono); font-size:13px; font-weight:700; letter-spacing:1px;
+  background:rgba(255,30,30,0.08); border:none; border-bottom:1px solid var(--red);
+  color:var(--text); outline:none; width:6ch; text-align:right; padding:0 2px;
+  -moz-appearance:textfield;
+}
+.tune-val-input.highlight { color:var(--amber); }
+.tune-val-input::-webkit-inner-spin-button,
+.tune-val-input::-webkit-outer-spin-button { -webkit-appearance:none; }
+.tune-val-unit { font-family:var(--font-mono); font-size:11px; color:var(--text-dim); letter-spacing:1px; }
+.gear-grid { display:grid; grid-template-columns:repeat(6,1fr); gap:6px; margin-bottom:16px; }
+.gear-slot { display:flex; flex-direction:column; align-items:center; gap:4px; }
+.gear-label { font-family:var(--font-mono); font-size:9px; color:var(--text-dim); letter-spacing:1px; text-transform:uppercase; }
+.gear-bar-wrap { width:100%; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; height:72px; }
+.gear-bar { width:72%; border-radius:2px 2px 0 0; background:linear-gradient(180deg,var(--red),var(--orange)); box-shadow:0 0 8px rgba(255,30,30,0.4); transition:height 0.5s cubic-bezier(0.16,1,0.3,1); min-height:4px; }
+.gear-ratio-val { font-family:var(--font-mono); font-size:10px; font-weight:700; color:var(--text); letter-spacing:0.5px; }
+.gear-feel-wrap { width:100%; display:flex; flex-direction:column; align-items:center; gap:3px; padding-top:6px; border-top:1px solid rgba(255,255,255,0.05); margin-top:4px; position:relative; }
+.gear-feel-labels { display:flex; justify-content:space-between; width:100%; font-family:var(--font-mono); font-size:8px; color:var(--text-dim); letter-spacing:1px; text-transform:uppercase; }
+.gear-feel-slider { width:100%; height:3px; cursor:pointer; accent-color: var(--red); }
+.gear-feel-val { font-family:var(--font-mono); font-size:8px; color:var(--amber); letter-spacing:1px; text-align:center; min-height:12px; text-transform:uppercase; text-shadow:0 0 6px rgba(255,179,0,0.4); }
+
+/* Gear tooltip icon */
+.gear-tooltip-icon { font-family:var(--font-mono); font-size:8px; color:var(--text-dim); cursor:help; border:1px solid rgba(255,255,255,0.1); border-radius:50%; width:14px; height:14px; display:flex; align-items:center; justify-content:center; align-self:flex-end; margin-bottom:2px; transition:border-color 0.15s, color 0.15s; }
+.gear-tooltip-icon:hover { color:var(--cyan); border-color:var(--cyan); }
+/* Floating tooltip — appended to body, positioned via JS */
+#gearFloatTip { display:none; position:fixed; width:240px; background:rgba(8,10,20,0.98); border:1px solid rgba(0,229,255,0.3); padding:13px 15px; z-index:9999; pointer-events:none; box-shadow:0 0 30px rgba(0,229,255,0.15); }
+#gearFloatTip.visible { display:block; }
+#gearFloatTip::after { content:''; position:absolute; top:100%; left:var(--arrow-left, 50%); transform:none; border:6px solid transparent; border-top-color:rgba(0,229,255,0.3); }
+.gear-tooltip-title { font-family:var(--font-mono); font-size:9px; letter-spacing:3px; color:var(--cyan); text-transform:uppercase; margin-bottom:10px; text-shadow:0 0 8px rgba(0,229,255,0.5); }
+.gear-tooltip-row { display:flex; gap:10px; margin-bottom:7px; }
+.gear-tooltip-row:last-child { margin-bottom:0; }
+.gear-tooltip-side { font-family:var(--font-mono); font-size:9px; font-weight:700; letter-spacing:1px; text-transform:uppercase; flex-shrink:0; padding-top:2px; min-width:52px; }
+.gear-tooltip-side.left { color:var(--orange); }
+.gear-tooltip-side.right { color:var(--amber); }
+.gear-tooltip-desc { font-size:11px; color:rgba(240,240,240,0.72); line-height:1.55; letter-spacing:0.3px; }
+.final-drive-row { display:flex; justify-content:space-between; align-items:center; padding:10px 0 0; border-top:1px solid rgba(255,255,255,0.05); margin-top:4px; }
+.final-drive-label { font-size:12px; color:var(--text-dim); letter-spacing:0.5px; }
+.final-drive-val { font-family:var(--font-mono); font-size:14px; font-weight:700; color:var(--amber); text-shadow:0 0 10px rgba(255,179,0,0.45); letter-spacing:1px; }
+
+/* Ride height min/max range inputs */
+.rh-range-row { display:flex; align-items:center; gap:6px; padding:5px 0 2px; }
+.rh-range-label { font-size:11px; color:var(--text-dim); letter-spacing:0.3px; flex:1; }
+.rh-range-inputs { display:flex; align-items:center; gap:4px; }
+.rh-range-sep { font-family:var(--font-mono); font-size:9px; color:var(--text-dim); }
+.rh-input { font-family:var(--font-mono); font-size:11px; font-weight:600; background:rgba(255,179,0,0.06); border:none; border-bottom:1px solid rgba(255,179,0,0.3); color:var(--amber); outline:none; width:5ch; text-align:center; padding:1px 2px; -moz-appearance:textfield; }
+.rh-input::-webkit-inner-spin-button, .rh-input::-webkit-outer-spin-button { -webkit-appearance:none; }
+.rh-input:focus { border-bottom-color:var(--amber); background:rgba(255,179,0,0.1); }
+.rh-unit { font-family:var(--font-mono); font-size:9px; color:var(--text-dim); }
+.lib-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.7); backdrop-filter:blur(6px); z-index:500; opacity:0; pointer-events:none; transition:opacity 0.3s; }
+.lib-overlay.open { opacity:1; pointer-events:all; }
+.lib-drawer {
+  position:fixed; right:0; top:0; bottom:0; width:min(480px,95vw);
+  background:rgba(8,10,18,0.97); border-left:1px solid rgba(255,30,30,0.2);
+  z-index:501; display:flex; flex-direction:column;
+  transform:translateX(100%); transition:transform 0.35s cubic-bezier(0.16,1,0.3,1);
+  overflow:hidden;
+}
+.lib-drawer.open { transform:translateX(0); }
+.lib-drawer-header {
+  padding:28px 28px 20px; border-bottom:1px solid rgba(255,30,30,0.12);
+  display:flex; align-items:center; gap:10px; flex-shrink:0;
+  background:linear-gradient(180deg,rgba(255,30,30,0.06),transparent);
+  position:relative; overflow:hidden;
+}
+.lib-header-actions { display:flex; gap:6px; margin-left:auto; }
+.lib-io-btn {
+  font-family:var(--font-mono); font-size:9px; letter-spacing:1.5px; text-transform:uppercase;
+  background:none; border:1px solid rgba(255,255,255,0.1); color:var(--text-dim);
+  padding:7px 12px; cursor:pointer; transition:all 0.2s; white-space:nowrap;
+  display:flex; align-items:center; gap:5px;
+}
+.lib-io-btn:hover { border-color:var(--accent); color:var(--accent); box-shadow:0 0 10px rgba(255,30,30,0.1); }
+
+/* Import toast notification */
+.import-toast {
+  position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(80px);
+  background:rgba(10,12,20,0.97); border:1px solid rgba(255,255,255,0.1);
+  color:var(--text); font-family:var(--font-mono); font-size:11px; letter-spacing:1.5px;
+  padding:12px 24px; z-index:9999; transition:transform 0.3s cubic-bezier(0.16,1,0.3,1), opacity 0.3s;
+  opacity:0; pointer-events:none; text-align:center; max-width:90vw;
+}
+.import-toast.show { transform:translateX(-50%) translateY(0); opacity:1; }
+.import-toast.success { border-color:rgba(34,197,94,0.4); color:#22c55e; }
+.import-toast.error   { border-color:rgba(255,30,30,0.4); color:var(--accent); }
+.lib-drawer-header::after { content:''; position:absolute; bottom:0; left:0; right:0; height:1px; background:linear-gradient(90deg,transparent,var(--red),var(--orange),transparent); opacity:0.5; }
+.lib-drawer-title { font-family:var(--font-display); font-size:32px; letter-spacing:4px; background:linear-gradient(90deg,var(--text),rgba(255,255,255,0.5)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; flex:1; }
+.lib-close { background:none; border:1px solid rgba(255,255,255,0.08); color:var(--text-dim); font-size:18px; width:36px; height:36px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all 0.2s; flex-shrink:0; }
+.lib-close:hover { border-color:var(--red); color:var(--red); box-shadow:0 0 12px rgba(255,30,30,0.2); }
+
+/* ── Rotation button grid ─────────────────────────────────────────────────── */
+.rot-grid-wrap { display:flex; flex-direction:column; gap:6px; }
+.rot-grid-label {
+  font-family:var(--font-mono); font-size:11px; color:var(--text);
+  letter-spacing:2px; text-transform:uppercase; text-align:center;
+}
+.rot-grid {
+  display:grid; grid-template-columns:1fr 1fr; gap:8px;
+}
+.rot-col { display:flex; flex-direction:column; gap:5px; }
+.rot-col-head {
+  font-family:var(--font-mono); font-size:9px; letter-spacing:2px;
+  text-align:center; padding:5px 0; border-bottom:1px solid currentColor;
+  margin-bottom:2px; text-transform:uppercase;
+}
+.rot-col-head.rot-us { color:#38bdf8; }
+.rot-col-head.rot-os { color:#f97316; }
+.rot-btn {
+  font-family:var(--font-mono); font-size:10px; letter-spacing:1px;
+  text-transform:uppercase; background:rgba(255,255,255,0.03);
+  border:1px solid rgba(255,255,255,0.08); color:var(--text-dim);
+  padding:8px 6px; cursor:pointer; transition:all 0.15s; text-align:center;
+}
+.rot-btn:hover { color:var(--text); border-color:rgba(255,255,255,0.2); }
+.rot-btn-us.active {
+  background:rgba(56,189,248,0.12); border-color:#38bdf8;
+  color:#38bdf8; box-shadow:0 0 10px rgba(56,189,248,0.15);
+}
+.rot-btn-os.active {
+  background:rgba(249,115,22,0.12); border-color:#f97316;
+  color:#f97316; box-shadow:0 0 10px rgba(249,115,22,0.15);
+}
+
+/* ── Tips / Cheat Sheet Panel ─────────────────────────────────────────────── */
+.tips-overlay {
+  position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:500;
+  opacity:0; pointer-events:none; transition:opacity 0.3s;
+}
+.tips-overlay.open { opacity:1; pointer-events:all; }
+.tips-panel {
+  position:fixed; right:0; top:0; bottom:0; width:min(860px,96vw);
+  background:rgba(8,10,18,0.98); border-left:1px solid rgba(255,30,30,0.2);
+  z-index:501; display:flex; flex-direction:column;
+  transform:translateX(100%); transition:transform 0.35s cubic-bezier(0.16,1,0.3,1);
+  overflow:hidden;
+}
+.tips-panel.open { transform:translateX(0); }
+.tips-header {
+  padding:24px 28px 18px; border-bottom:1px solid rgba(255,30,30,0.12);
+  display:flex; align-items:center; gap:10px; flex-shrink:0;
+  background:linear-gradient(180deg,rgba(255,30,30,0.06),transparent);
+}
+.tips-header::after { content:''; position:absolute; left:28px; right:28px; bottom:0;
+  height:1px; background:linear-gradient(90deg,transparent,var(--red),var(--orange),transparent); opacity:0.5; }
+.tips-title {
+  font-family:var(--font-display); font-size:28px; letter-spacing:4px;
+  background:linear-gradient(90deg,var(--text),rgba(255,255,255,0.5));
+  -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; flex:1;
+}
+.tips-body { flex:1; overflow-y:auto; padding:20px 24px; }
+.tips-body::-webkit-scrollbar { width:3px; }
+.tips-body::-webkit-scrollbar-track { background:transparent; }
+.tips-body::-webkit-scrollbar-thumb { background:rgba(255,30,30,0.3); }
+.tips-columns { display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px; align-items:start; }
+@media(max-width:700px){ .tips-columns { grid-template-columns:1fr 1fr; } .tips-column-misc { grid-column:1/-1; display:grid; grid-template-columns:1fr 1fr; gap:16px; } .tips-column-misc .tips-col-head { grid-column:1/-1; } }
+.tips-col-head {
+  font-family:var(--font-display); font-size:14px; letter-spacing:3px;
+  padding:8px 0 10px; margin-bottom:10px;
+  border-bottom:2px solid currentColor; text-align:center;
+}
+.tips-col-head.understeer { color:#38bdf8; }
+.tips-col-head.oversteer  { color:#f97316; }
+.tips-col-head.misc       { color:rgba(255,255,255,0.5); }
+.tips-card {
+  background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06);
+  padding:12px 14px; margin-bottom:10px;
+}
+.tips-card-title {
+  font-family:var(--font-mono); font-size:9px; letter-spacing:2px; text-transform:uppercase;
+  color:var(--text-dim); border-bottom:1px solid rgba(255,255,255,0.06); padding-bottom:7px; margin-bottom:8px;
+}
+.tips-card ul { list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:4px; }
+.tips-card ul li {
+  font-family:var(--font-mono); font-size:10px; letter-spacing:0.5px;
+  color:rgba(255,255,255,0.75); padding-left:10px; position:relative;
+}
+.tips-card ul li::before { content:'–'; position:absolute; left:0; color:var(--text-dim); }
+
+
+.lib-body { flex:1; overflow-y:auto; padding:20px 24px; display:flex; flex-direction:column; gap:12px; }
+.lib-body::-webkit-scrollbar { width:3px; }
+.lib-body::-webkit-scrollbar-track { background:transparent; }
+.lib-body::-webkit-scrollbar-thumb { background:rgba(255,30,30,0.3); border-radius:2px; }
+.lib-empty { text-align:center; padding:60px 20px; color:var(--text-dim); font-family:var(--font-mono); font-size:11px; letter-spacing:3px; text-transform:uppercase; }
+.lib-empty-icon { font-family:var(--font-display); font-size:64px; display:block; margin-bottom:16px; opacity:0.2; }
+.lib-car-block { background:rgba(10,12,20,0.9); border:1px solid rgba(255,30,30,0.1); overflow:hidden; transition:border-color 0.2s; }
+.lib-car-block:hover { border-color:rgba(255,30,30,0.28); }
+.lib-car-header { padding:14px 16px; display:flex; align-items:center; gap:12px; cursor:pointer; }
+.lib-car-name-text { font-family:var(--font-display); font-size:20px; letter-spacing:2px; flex:1; background:linear-gradient(90deg,var(--text),rgba(255,255,255,0.6)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+.lib-car-iter { font-family:var(--font-mono); font-size:9px; color:var(--text-dim); letter-spacing:2px; text-transform:uppercase; }
+.lib-builds { border-top:1px solid rgba(255,255,255,0.04); }
+.lib-build-row { display:flex; align-items:flex-start; gap:10px; padding:12px 16px; border-bottom:1px solid rgba(255,255,255,0.03); transition:background 0.15s; }
+.lib-build-row:last-child { border-bottom:none; }
+.lib-build-row:hover { background:rgba(255,30,30,0.04); }
+.lib-build-info { flex:1; display:flex; flex-direction:column; gap:3px; min-width:0; }
+.lib-build-name { font-size:13px; font-weight:600; letter-spacing:0.5px; }
+.lib-build-notes-text { font-size:11px; color:rgba(240,240,240,0.5); letter-spacing:0.3px; line-height:1.4; white-space:pre-wrap; word-break:break-word; }
+.lib-build-date { font-family:var(--font-mono); font-size:9px; color:var(--text-dim); letter-spacing:1px; }
+.lib-btn { font-family:var(--font-mono); font-size:9px; letter-spacing:2px; text-transform:uppercase; border:1px solid; padding:5px 10px; cursor:pointer; transition:all 0.15s; background:none; flex-shrink:0; align-self:flex-start; }
+.lib-btn-load { border-color:rgba(0,229,255,0.3); color:var(--cyan); }
+.lib-btn-load:hover { background:rgba(0,229,255,0.08); box-shadow:0 0 10px rgba(0,229,255,0.15); }
+.lib-btn-del { border-color:rgba(255,30,30,0.2); color:var(--text-dim); }
+.lib-btn-del:hover { border-color:var(--red); color:var(--red); }
+.lib-save-row { padding:16px 24px; border-top:1px solid rgba(255,30,30,0.1); flex-shrink:0; }
+.lib-save-form { display:flex; flex-direction:column; gap:8px; }
+.lib-save-top { display:flex; gap:10px; }
+.lib-save-notes {
+  width:100%; background:rgba(17,20,32,0.92); border:1px solid rgba(255,30,30,0.12);
+  color:var(--text); font-family:var(--font-body); font-size:13px; padding:10px 14px;
+  outline:none; resize:none; transition:all 0.2s; letter-spacing:0.5px; line-height:1.5; flex:1;
+}
+.lib-save-notes:focus { border-color:rgba(255,30,30,0.4); box-shadow:0 0 0 2px rgba(255,30,30,0.06); }
+.lib-save-notes::placeholder { color:var(--text-dim); }
+.lib-swap-row { display:flex; gap:10px; align-items:stretch; }
+.lib-swap-toggle { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; cursor:pointer; background:rgba(17,20,32,0.92); border:1px solid rgba(255,255,255,0.06); padding:10px 14px; transition:all 0.2s; flex-shrink:0; user-select:none; min-width:80px; }
+.lib-swap-toggle:hover { border-color:rgba(255,106,0,0.4); }
+.lib-swap-toggle.swapped { border-color:var(--orange); background:rgba(255,106,0,0.08); box-shadow:0 0 12px rgba(255,106,0,0.15); }
+.lib-swap-box { width:22px; height:22px; border:1px solid rgba(255,255,255,0.13); display:flex; align-items:center; justify-content:center; font-size:13px; transition:all 0.15s; }
+.lib-swap-toggle.swapped .lib-swap-box { background:var(--orange); border-color:var(--orange); box-shadow:0 0 8px rgba(255,106,0,0.55); }
+.lib-swap-label { font-family:var(--font-mono); font-size:8px; letter-spacing:2px; text-transform:uppercase; color:var(--text-dim); white-space:nowrap; }
+.lib-save-input { flex:1; background:rgba(17,20,32,0.92); border:1px solid rgba(255,30,30,0.18); color:var(--text); font-family:var(--font-body); font-size:14px; padding:10px 14px; outline:none; transition:all 0.2s; letter-spacing:1px; }
+.lib-save-input:focus { border-color:var(--red); box-shadow:0 0 0 2px rgba(255,30,30,0.08); }
+.lib-save-input::placeholder { color:var(--text-dim); }
+.lib-save-btn { background:linear-gradient(135deg,#ff1e1e,#ff6a00); color:#fff; font-family:var(--font-display); font-size:16px; letter-spacing:3px; border:none; padding:10px 20px; cursor:pointer; transition:all 0.2s; white-space:nowrap; }
+.lib-save-btn:hover { box-shadow:0 0 20px rgba(255,30,30,0.4); filter:brightness(1.1); }
+
+/* ── Header buttons ── */
+.header-btn { font-family:var(--font-mono); font-size:10px; letter-spacing:2px; text-transform:uppercase; background:none; border:1px solid rgba(255,30,30,0.25); color:var(--text-dim); padding:8px 16px; cursor:pointer; transition:all 0.2s; }
+.header-btn:hover { border-color:var(--red); color:var(--text); box-shadow:0 0 12px rgba(255,30,30,0.15); }
+.btn-reset-learn { font-family:var(--font-mono); font-size:9px; letter-spacing:2px; text-transform:uppercase; background:none; border:1px solid rgba(255,255,255,0.06); color:var(--text-dim); padding:7px 12px; cursor:pointer; transition:all 0.2s; width:100%; margin-top:8px; }
+.btn-reset-learn:hover { border-color:rgba(255,30,30,0.4); color:var(--red); }
+
+/* ── Color Customizer ─────────────────────────────────────────────────── */
+.color-section { display:flex; flex-direction:column; gap:14px; }
+.color-preset-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; }
+.color-preset {
+  height:36px; border:1px solid rgba(255,255,255,0.07); cursor:pointer;
+  transition:all 0.18s; border-radius:2px; position:relative; overflow:hidden;
+  display:flex; align-items:center; justify-content:center;
+}
+.color-preset:hover { transform:scale(1.05); border-color:rgba(255,255,255,0.2); }
+.color-preset.active-preset { border-color:rgba(255,255,255,0.5); box-shadow:0 0 14px rgba(255,255,255,0.1); }
+.color-preset-label { font-family:var(--font-mono); font-size:7px; letter-spacing:1.5px; text-transform:uppercase; color:rgba(255,255,255,0.7); text-shadow:0 1px 4px rgba(0,0,0,0.8); }
+
+.color-custom-row { display:flex; flex-direction:column; gap:10px; }
+.color-swatch-row { display:flex; align-items:center; gap:10px; }
+.color-swatch-label { font-family:var(--font-mono); font-size:9px; letter-spacing:2px; text-transform:uppercase; color:var(--text-dim); flex:1; }
+.color-swatch-pick { display:flex; align-items:center; gap:6px; }
+.color-swatch-pick input[type="color"] {
+  width:32px; height:24px; border:none; outline:none; cursor:pointer;
+  background:none; padding:0; border-radius:2px; overflow:hidden;
+}
+.color-hex { font-family:var(--font-mono); font-size:9px; color:var(--text-dim); letter-spacing:1px; width:5em; }
+
+.theme-preview-bar { height:3px; width:100%; border-radius:1px; margin-top:6px; transition:background 0.3s; }
+
+/* Weight class pills with range sub-label */
+.pill-weight { flex-direction:column; gap:2px; padding:9px 6px; }
+.pill-weight-label { font-size:10px; letter-spacing:2px; }
+.pill-weight-range { font-family:var(--font-mono); font-size:8px; letter-spacing:0px; color:var(--text-dim); transition:color 0.2s; }
+.pill.active .pill-weight-range { color:rgba(255,80,30,0.8); }
+
+/* ── App View System ─────────────────────────────────────────────────────── */
+.app-view {
+  position: fixed; inset: 0; z-index: 20;
+  transition: opacity 0.45s cubic-bezier(0.16,1,0.3,1),
+              transform 0.45s cubic-bezier(0.16,1,0.3,1);
+  will-change: transform, opacity;
+}
+.app-view.hidden {
+  opacity: 0; pointer-events: none;
+}
+.app-view.slide-up   { transform: translateY(-40px); }
+.app-view.slide-down { transform: translateY(40px); }
+
+/* ── Home Screen ─────────────────────────────────────────────────────────── */
+#homeScreen {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  min-height: 100vh; gap: 0;
+  background: transparent;
+  padding: 40px;
+}
+
+.home-eyebrow {
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: 6px;
+  text-transform: uppercase; color: var(--text-dim);
+  margin-bottom: 28px;
+  animation: homeIn 0.8s cubic-bezier(0.16,1,0.3,1) 0.1s both;
+}
+
+.home-logo {
+  font-family: var(--font-display);
+  font-size: clamp(72px, 12vw, 148px);
+  letter-spacing: 8px; line-height: 0.9;
+  text-align: center;
+  background: linear-gradient(135deg, #fff 0%, rgba(255,255,255,0.75) 40%, var(--amber) 70%, var(--orange) 100%);
+  background-size: 300% 300%;
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+  filter: drop-shadow(0 0 60px rgba(255,106,0,0.35));
+  animation: homeLogoIn 1s cubic-bezier(0.16,1,0.3,1) both,
+             homeLogo 8s ease-in-out 1s infinite alternate;
+  margin-bottom: 16px;
+}
+@keyframes homeLogoIn {
+  from { opacity:0; transform:translateY(30px) scale(0.95); filter:drop-shadow(0 0 0px rgba(255,106,0,0)); }
+  to   { opacity:1; transform:translateY(0) scale(1); }
+}
+@keyframes homeLogo {
+  0%   { background-position: 0% 0%; filter: drop-shadow(0 0 60px rgba(255,30,30,0.4)); }
+  50%  { background-position: 100% 100%; filter: drop-shadow(0 0 80px rgba(255,179,0,0.5)); }
+  100% { background-position: 200% 200%; filter: drop-shadow(0 0 40px rgba(255,106,0,0.3)); }
+}
+
+.home-sub {
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: 4px;
+  text-transform: uppercase; color: var(--text-dim);
+  margin-bottom: 72px;
+  animation: homeIn 0.8s cubic-bezier(0.16,1,0.3,1) 0.25s both;
+}
+
+@keyframes homeIn {
+  from { opacity:0; transform:translateY(16px); }
+  to   { opacity:1; transform:translateY(0); }
+}
+
+.home-divider {
+  width: 1px; height: 60px;
+  background: linear-gradient(180deg, transparent, rgba(255,30,30,0.4), transparent);
+  margin-bottom: 56px;
+  animation: homeIn 0.8s cubic-bezier(0.16,1,0.3,1) 0.3s both;
+}
+
+.home-actions {
+  display: flex; gap: 20px; align-items: stretch;
+  animation: homeIn 0.8s cubic-bezier(0.16,1,0.3,1) 0.4s both;
+}
+
+.home-btn {
+  position: relative; overflow: hidden;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 12px; padding: 36px 48px;
+  background: rgba(10,12,20,0.85);
+  border: 1px solid rgba(255,255,255,0.07);
+  cursor: pointer; transition: all 0.3s cubic-bezier(0.16,1,0.3,1);
+  min-width: 200px; backdrop-filter: blur(16px);
+  text-decoration: none;
+}
+.home-btn::before {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(135deg, rgba(255,30,30,0.06), transparent);
+  opacity: 0; transition: opacity 0.3s;
+}
+.home-btn::after {
+  content: ''; position: absolute;
+  bottom: 0; left: 0; right: 0; height: 2px;
+  background: linear-gradient(90deg, var(--red), var(--orange));
+  transform: scaleX(0); transform-origin: left;
+  transition: transform 0.35s cubic-bezier(0.16,1,0.3,1);
+  box-shadow: 0 0 12px var(--red);
+}
+.home-btn:hover { border-color: rgba(255,30,30,0.3); transform: translateY(-4px); box-shadow: 0 20px 60px rgba(0,0,0,0.4), 0 0 40px rgba(255,30,30,0.08); }
+.home-btn:hover::before { opacity: 1; }
+.home-btn:hover::after  { transform: scaleX(1); }
+.home-btn:active { transform: translateY(-1px); }
+
+.home-btn-icon {
+  font-size: 36px; line-height: 1;
+  filter: drop-shadow(0 0 12px rgba(255,106,0,0.5));
+  transition: transform 0.3s cubic-bezier(0.16,1,0.3,1), filter 0.3s;
+}
+.home-btn:hover .home-btn-icon {
+  transform: scale(1.15);
+  filter: drop-shadow(0 0 20px rgba(255,106,0,0.8));
+}
+.home-btn-label {
+  font-family: var(--font-display); font-size: 26px; letter-spacing: 4px;
+  color: var(--text);
+}
+.home-btn-sub {
+  font-family: var(--font-mono); font-size: 9px; letter-spacing: 2px;
+  text-transform: uppercase; color: var(--text-dim);
+}
+
+.home-btn-primary::after {
+  background: linear-gradient(90deg, var(--red), var(--orange), var(--amber));
+}
+
+.home-version {
+  position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
+  font-family: var(--font-mono); font-size: 9px; letter-spacing: 3px;
+  color: rgba(255,255,255,0.1); text-transform: uppercase; white-space: nowrap;
+  animation: homeIn 1s cubic-bezier(0.16,1,0.3,1) 0.6s both;
+  z-index: 21;
+}
+
+/* ── Credits Block ───────────────────────────────────────────────────────── */
+.home-credits {
+  position: fixed; bottom: 28px; right: 32px;
+  display: flex; flex-direction: column; gap: 4px;
+  animation: homeIn 1s cubic-bezier(0.16,1,0.3,1) 0.6s both;
+  z-index: 21;
+}
+.home-credits-title {
+  font-family: var(--font-mono); font-size: 8px; letter-spacing: 3px;
+  text-transform: uppercase; color: rgba(255,30,30,0.5);
+  margin-bottom: 4px;
+}
+.home-credits-line {
+  font-family: var(--font-mono); font-size: 9px; letter-spacing: 1px;
+  color: rgba(255,255,255,0.18); text-align: right;
+}
+.home-credits-line span {
+  color: rgba(255,255,255,0.38);
+}
+
+/* ── Tuner App Screen ────────────────────────────────────────────────────── */
+#appScreen {
+  background: transparent;
+  min-height: 100vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* Back button in header */
+.btn-back {
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: 2px;
+  text-transform: uppercase; background: none;
+  border: 1px solid rgba(255,255,255,0.08); color: var(--text-dim);
+  padding: 8px 14px; cursor: pointer; transition: all 0.2s;
+  display: flex; align-items: center; gap: 6px;
+}
+.btn-back:hover { border-color: rgba(255,30,30,0.4); color: var(--text); }
+
+.changelog-panel { background:rgba(10,12,20,0.92); border:1px solid rgba(0,229,255,0.12); padding:20px; position:relative; overflow:hidden; animation:cardIn 0.5s ease both; }
+.changelog-panel::before { content:''; position:absolute; top:0;left:0;right:0;height:1px; background:linear-gradient(90deg,transparent,var(--cyan),transparent); opacity:0.4; }
+.changelog-title { font-family:var(--font-mono); font-size:9px; letter-spacing:4px; text-transform:uppercase; color:var(--cyan); margin-bottom:10px; text-shadow:0 0 8px rgba(0,229,255,0.35); }
+.changelog-legend { display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-bottom:14px; padding-bottom:12px; border-bottom:1px solid rgba(255,255,255,0.05); }
+.changelog-empty { font-family:var(--font-mono); font-size:10px; color:var(--text-dim); letter-spacing:2px; text-align:center; padding:12px 0; }
+.changelog-list { display:flex; flex-direction:column; gap:0; max-height:260px; overflow-y:auto; transition:max-height 0.4s cubic-bezier(0.16,1,0.3,1); }
+.changelog-list.expanded { max-height:2000px; }
+.changelog-show-all { display:block; width:100%; margin-top:8px; background:none; border:1px solid rgba(255,255,255,0.07); color:var(--text-dim); font-family:var(--font-mono); font-size:9px; letter-spacing:2px; text-transform:uppercase; padding:7px; cursor:pointer; transition:all 0.2s; }
+.changelog-show-all:hover { border-color:rgba(0,229,255,0.3); color:var(--cyan); }
+.changelog-list::-webkit-scrollbar { width:2px; }
+.changelog-list::-webkit-scrollbar-thumb { background:rgba(0,229,255,0.25); border-radius:2px; }
+.changelog-entry { border-bottom:1px solid rgba(255,255,255,0.04); padding:10px 0; }
+.changelog-entry:last-child { border-bottom:none; }
+.changelog-entry-header { display:flex; align-items:center; gap:8px; margin-bottom:6px; }
+.changelog-iter { font-family:var(--font-mono); font-size:9px; letter-spacing:2px; color:var(--cyan); background:rgba(0,229,255,0.08); border:1px solid rgba(0,229,255,0.2); padding:2px 7px; }
+.changelog-checks { font-size:10px; color:rgba(240,240,240,0.45); letter-spacing:0.3px; font-style:italic; flex:1; }
+.changelog-deltas { display:flex; flex-wrap:wrap; gap:5px; }
+.changelog-delta { font-family:var(--font-mono); font-size:9px; letter-spacing:0.5px; padding:3px 8px; border:1px solid; }
+.changelog-delta.pos { border-color:rgba(34,197,94,0.35); color:#22c55e; background:rgba(34,197,94,0.06); }
+.changelog-delta.neg { border-color:rgba(255,30,30,0.35); color:var(--red); background:rgba(255,30,30,0.06); }
+.changelog-delta.neutral { border-color:rgba(255,179,0,0.3); color:var(--amber); background:rgba(255,179,0,0.05); }
+</style>
+</head>
+<body>
+<canvas id="smokeCanvas"></canvas>
+<canvas id="tiremarksCanvas"></canvas>
+<div class="chroma"></div>
+<div class="vignette"></div>
+<div class="speed-flash" id="speedFlash"></div>
+
+<!-- ── HOME SCREEN ─────────────────────────────────────────── -->
+<div id="homeScreen" class="app-view">
+  <div class="home-logo">TANNERS<br>HORIZON TUNER</div>
+  <div class="home-divider"></div>
+  <div class="home-actions">
+    <button class="home-btn home-btn-primary" onclick="goToTuner()">
+      <span class="home-btn-icon">⚡</span>
+      <span class="home-btn-label">NEW CAR</span>
+      <span class="home-btn-sub">Build a fresh tune</span>
+    </button>
+    <button class="home-btn" onclick="goToGarage()">
+      <span class="home-btn-icon">🏎</span>
+      <span class="home-btn-label">GARAGE</span>
+      <span class="home-btn-sub">Saved builds</span>
+    </button>
+  </div>
+
+  <!-- Credits block — bottom right corner -->
+  <div class="home-credits">
+    <div class="home-credits-title">Credits</div>
+    <div class="home-credits-line">Tuning logic &amp; design — <span>Tanner</span></div>
+    <div class="home-credits-line">Testers — <span>Braden &amp; Isaac</span></div>
+  </div>
+</div>
+
+<!-- ── TUNER APP SCREEN ────────────────────────────────────── -->
+<div id="appScreen" class="app-view hidden slide-down">
+<div class="ui-layer">
+<header>
+  <button class="btn-back" onclick="goHome()">← HOME</button>
+  <div class="logo">TANNERS HORIZON TUNER</div>
+  <div class="rpm-bar" id="rpmBar"></div>
+  <button class="header-btn" onclick="freshStart()">✦ NEW CAR</button>
+  <button class="header-btn" onclick="openLibrary()">📚 GARAGE</button>
+  <button class="header-btn" id="themeToggleBtn" onclick="toggleThemePanel()" title="Customize Colors">🎨 THEME</button>
+  <button class="header-btn" id="muteBtn" onclick="toggleMute()" title="Toggle Sound">🔊 SOUND</button>
+  <button class="header-btn" onclick="toggleTips()" title="Tuning Cheat Sheet">? TIPS</button>
+</header>
+
+<!-- Tips / Cheat Sheet Panel -->
+<div class="tips-overlay" id="tipsOverlay" onclick="closeTips()"></div>
+<div class="tips-panel" id="tipsPanel">
+  <div class="tips-header">
+    <div class="tips-title">TUNING CHEAT SHEET</div>
+    <button class="lib-close" onclick="closeTips()">✕</button>
+  </div>
+  <div class="tips-body">
+    <div class="tips-columns">
+
+      <div class="tips-column">
+        <div class="tips-col-head understeer">UNDERSTEER</div>
+
+        <div class="tips-card">
+          <div class="tips-card-title">CORNER ENTRY</div>
+          <ul>
+            <li>Increase Rear ARB</li>
+            <li>Decrease Front ARB</li>
+            <li>Decrease Decel Diff</li>
+            <li>Increase Bump Stiffness</li>
+            <li>Increase Front Toe Out</li>
+          </ul>
+        </div>
+
+        <div class="tips-card">
+          <div class="tips-card-title">MID CORNER</div>
+          <ul>
+            <li>Increase Rear ARB</li>
+            <li>Decrease Front ARB</li>
+            <li>Increase Rear Spring Stiffness</li>
+            <li>Increase Accel Diff</li>
+            <li>Increase Rebound Stiffness</li>
+            <li>Decrease Rear Aero</li>
+          </ul>
+        </div>
+
+        <div class="tips-card">
+          <div class="tips-card-title">CORNER EXIT</div>
+          <ul>
+            <li>Increase Accel Diff</li>
+            <li>Decrease Front ARB</li>
+            <li>Increase Rear Spring Stiffness</li>
+            <li>Decrease Rear Aero</li>
+          </ul>
+        </div>
+
+        <div class="tips-card">
+          <div class="tips-card-title">DURING WEIGHT SHIFT</div>
+          <ul>
+            <li>Decrease Front ARB</li>
+            <li>Increase Rebound Stiffness</li>
+            <li>Decrease Rear Aero</li>
+            <li>Increase Tire Pressure</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="tips-column">
+        <div class="tips-col-head oversteer">OVERSTEER</div>
+
+        <div class="tips-card">
+          <div class="tips-card-title">CORNER ENTRY</div>
+          <ul>
+            <li>Increase Front ARB</li>
+            <li>Soften Rear Springs</li>
+            <li>Increase Decel Diff</li>
+            <li>Move Brake Bias Forward</li>
+          </ul>
+        </div>
+
+        <div class="tips-card">
+          <div class="tips-card-title">MID CORNER</div>
+          <ul>
+            <li>Increase Front ARB</li>
+            <li>Soften Rear Springs</li>
+            <li>Reduce Accel Diff</li>
+            <li>Increase Rear Aero</li>
+            <li>Reduce Rebound Stiffness</li>
+          </ul>
+        </div>
+
+        <div class="tips-card">
+          <div class="tips-card-title">CORNER EXIT</div>
+          <ul>
+            <li>Reduce Accel Diff</li>
+            <li>Soften Rear Springs</li>
+            <li>Increase Front ARB</li>
+            <li>Increase Rear Aero</li>
+            <li>Increase Camber</li>
+          </ul>
+        </div>
+
+        <div class="tips-card">
+          <div class="tips-card-title">DURING WEIGHT SHIFT</div>
+          <ul>
+            <li>Increase Front ARB</li>
+            <li>Decrease Rebound Stiffness</li>
+            <li>Increase Rear Aero</li>
+            <li>Reduce Tire Pressure</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="tips-column tips-column-misc">
+        <div class="tips-col-head misc">MISC.</div>
+
+        <div class="tips-card">
+          <div class="tips-card-title">LOCKING BRAKES</div>
+          <ul>
+            <li>Increase Rebound Damping</li>
+            <li>Increase Decel Diff</li>
+            <li>Move Brake Bias Rearward</li>
+            <li>Reduce Brake Pressure</li>
+          </ul>
+        </div>
+
+        <div class="tips-card">
+          <div class="tips-card-title">BOUNCING</div>
+          <ul>
+            <li>Increase Bump Stiffness</li>
+            <li>Reduce Spring Stiffness</li>
+            <li>Increase Ride Height</li>
+            <li>Reduce Rebound Stiffness</li>
+          </ul>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Library Drawer -->
+<div class="lib-overlay" id="libOverlay" onclick="closeLibrary()"></div>
+<div class="lib-drawer" id="libDrawer">
+  <div class="lib-drawer-header">
+    <div class="lib-drawer-title">GARAGE</div>
+    <div class="lib-header-actions">
+      <button class="lib-io-btn" onclick="exportGarage()" title="Export all builds as JSON">⬆ EXPORT</button>
+      <label class="lib-io-btn" title="Import builds from JSON file">⬇ IMPORT<input type="file" id="importFileInput" accept=".json" style="display:none" onchange="importGarage(event)"></label>
+    </div>
+    <button class="lib-close" onclick="closeLibrary()">✕</button>
+  </div>
+  <div class="lib-body" id="libBody"></div>
+  <div class="lib-save-row" id="libSaveRow" style="display:none">
+    <div class="lib-save-form">
+      <div class="lib-save-top">
+        <input class="lib-save-input" id="libSaveName" placeholder="Build name (e.g. Track Attack)" maxlength="40">
+        <button class="lib-save-btn" onclick="saveCurrentBuild()">💾 SAVE</button>
+      </div>
+      <div class="lib-swap-row">
+        <label class="lib-swap-toggle" id="libSwapToggle" onclick="toggleEngineSwap()">
+          <span class="lib-swap-box" id="libSwapBox"></span>
+          <span class="lib-swap-label">Engine Swap</span>
+        </label>
+        <textarea class="lib-save-notes" id="libSaveNotes" placeholder="Notes (mods, feel, what works...) — optional" maxlength="300" rows="2"></textarea>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="main">
+  <div class="panel-left">
+    <!-- Tabbed Side Nav -->
+    <div class="side-nav">
+      <div class="side-nav-tabs" style="grid-template-columns:1fr 1fr">
+        <div class="side-tab active" data-tab="car" onclick="switchTab('car')">
+          <span class="side-tab-icon">🚗</span>
+          <span>Car</span>
+        </div>
+        <div class="side-tab" data-tab="setup" onclick="switchTab('setup')">
+          <span class="side-tab-icon">⚙️</span>
+          <span>Setup</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Car Tab -->
+    <div class="panel-section active" id="tab-car">
+      <div>
+        <div class="section-label">Car Identity</div>
+        <div class="row2">
+          <div class="field"><label>Year</label><input id="year" placeholder="2020"></div>
+          <div class="field"><label>Make</label><input id="make" placeholder="Nissan"></div>
+        </div>
+        <div class="field"><label>Model</label><input id="model" placeholder="GT-R Nismo"></div>
+        <div class="row2" style="margin-top:4px">
+          <div class="field"><label>Horsepower</label><input id="horsepower" type="number" placeholder="e.g. 650" min="50" max="2000" step="10"></div>
+          <div class="field">
+            <label>PI Class</label>
+            <select id="piClass" onchange="onPiClassChange()">
+              <option value="">Any / Unknown</option>
+              <option value="D">D (100–499)</option>
+              <option value="C">C (500–599)</option>
+              <option value="B">B (600–699)</option>
+              <option value="A">A (700–799)</option>
+              <option value="S1">S1 (800–899)</option>
+              <option value="S2">S2 (900–998)</option>
+              <option value="X">X (999)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="divider"></div>
+      <div>
+        <div class="section-label">Discipline</div>
+        <div class="discipline-grid">
+          <div class="pill active" data-discipline="grip">GRIP / ROAD</div>
+          <div class="pill" data-discipline="drift">DRIFT</div>
+          <div class="pill" data-discipline="drag">DRAG</div>
+          <div class="pill" data-discipline="rally">RALLY</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Setup Tab -->
+    <div class="panel-section" id="tab-setup">
+      <div>
+        <div class="section-label">Drivetrain</div>
+        <div class="drive-grid">
+          <div class="pill active" data-drive="RWD">RWD</div>
+          <div class="pill" data-drive="AWD">AWD</div>
+          <div class="pill" data-drive="FWD">FWD</div>
+        </div>
+      </div>
+      <div class="divider"></div>
+      <div>
+        <div class="section-label">Gearbox</div>
+        <div class="drive-grid" style="grid-template-columns:repeat(4,1fr);gap:8px">
+          <div class="pill" data-gears="4">4 SPD</div>
+          <div class="pill" data-gears="5">5 SPD</div>
+          <div class="pill active" data-gears="6">6 SPD</div>
+          <div class="pill" data-gears="7">7 SPD</div>
+          <div class="pill" data-gears="8">8 SPD</div>
+          <div class="pill" data-gears="9">9 SPD</div>
+          <div class="pill" data-gears="10">10 SPD</div>
+        </div>
+      </div>
+      <div class="divider"></div>
+      <div>
+        <div class="section-label">Weight Class</div>
+        <div class="drive-grid" style="grid-template-columns:repeat(3,1fr)">
+          <div class="pill pill-weight" data-weight="light">
+            <span class="pill-weight-label">LIGHT</span>
+            <span class="pill-weight-range">&lt; 2,600 lb</span>
+          </div>
+          <div class="pill pill-weight active" data-weight="medium">
+            <span class="pill-weight-label">MEDIUM</span>
+            <span class="pill-weight-range">2,600–3,500 lb</span>
+          </div>
+          <div class="pill pill-weight" data-weight="heavy">
+            <span class="pill-weight-label">HEAVY</span>
+            <span class="pill-weight-range">&gt; 3,500 lb</span>
+          </div>
+        </div>
+      </div>
+      <div class="divider"></div>
+      <div>
+        <div class="section-label">Ride Height Range</div>
+        <div style="font-family:var(--font-mono);font-size:8px;color:var(--text-dim);letter-spacing:1px;margin-bottom:10px;line-height:1.5">Enter your car's min/max from the in-game suspension screen.</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div>
+            <div style="font-family:var(--font-mono);font-size:8px;letter-spacing:2px;color:rgba(255,179,0,0.7);text-transform:uppercase;margin-bottom:6px">Front</div>
+            <div class="rh-range-inputs">
+              <input type="number" class="rh-input" id="lp_rh_fMin" placeholder="min" step="0.1" onchange="savePanelLimits()">
+              <span class="rh-range-sep">—</span>
+              <input type="number" class="rh-input" id="lp_rh_fMax" placeholder="max" step="0.1" onchange="savePanelLimits()">
+              <span class="rh-unit">"</span>
+            </div>
+          </div>
+          <div>
+            <div style="font-family:var(--font-mono);font-size:8px;letter-spacing:2px;color:rgba(255,179,0,0.7);text-transform:uppercase;margin-bottom:6px">Rear</div>
+            <div class="rh-range-inputs">
+              <input type="number" class="rh-input" id="lp_rh_rMin" placeholder="min" step="0.1" onchange="savePanelLimits()">
+              <span class="rh-range-sep">—</span>
+              <input type="number" class="rh-input" id="lp_rh_rMax" placeholder="max" step="0.1" onchange="savePanelLimits()">
+              <span class="rh-unit">"</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="divider"></div>
+      <div>
+        <div class="section-label">Aero Range</div>
+        <div style="font-family:var(--font-mono);font-size:8px;color:var(--text-dim);letter-spacing:1px;margin-bottom:10px;line-height:1.5">Enter your car's min/max from the in-game aero screen.</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div>
+            <div style="font-family:var(--font-mono);font-size:8px;letter-spacing:2px;color:rgba(255,179,0,0.7);text-transform:uppercase;margin-bottom:6px">Front</div>
+            <div class="rh-range-inputs">
+              <input type="number" class="rh-input" id="lp_ae_fMin" placeholder="min" step="1" onchange="savePanelLimits()">
+              <span class="rh-range-sep">—</span>
+              <input type="number" class="rh-input" id="lp_ae_fMax" placeholder="max" step="1" onchange="savePanelLimits()">
+              <span class="rh-unit">lb</span>
+            </div>
+          </div>
+          <div>
+            <div style="font-family:var(--font-mono);font-size:8px;letter-spacing:2px;color:rgba(255,179,0,0.7);text-transform:uppercase;margin-bottom:6px">Rear</div>
+            <div class="rh-range-inputs">
+              <input type="number" class="rh-input" id="lp_ae_rMin" placeholder="min" step="1" onchange="savePanelLimits()">
+              <span class="rh-range-sep">—</span>
+              <input type="number" class="rh-input" id="lp_ae_rMax" placeholder="max" step="1" onchange="savePanelLimits()">
+              <span class="rh-unit">lb</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel-footer">
+      <button class="btn-generate" id="generateBtn">⚡ GENERATE TUNE</button>
+      <button class="btn-reset-learn" id="resetLearnBtn" onclick="resetLearning()">↺ RESET ADAPTIVE LEARNING</button>
+    </div>
+  </div>
+
+  <div class="panel-right" id="panelRight">
+    <div class="empty-state">
+      <div class="empty-icon">HZN</div>
+      <div class="empty-text">▸ Enter car details and generate ◂</div>
+    </div>
+  </div>
+</div>
+</div><!-- end ui-layer -->
+</div><!-- end appScreen -->
+
+<script>
+// ── View Transitions ──────────────────────────────────────────────────────────
+let _currentView = 'home'; // 'home' | 'tuner'
+
+function showView(viewId, fromDir = 'down') {
+  const home = document.getElementById('homeScreen');
+  const app  = document.getElementById('appScreen');
+  const target = viewId === 'home' ? home : app;
+  const leaving = viewId === 'home' ? app : home;
+
+  // Prepare target: position offscreen in the right direction, then animate in
+  target.classList.remove('hidden', 'slide-up', 'slide-down');
+  target.classList.add(fromDir === 'down' ? 'slide-down' : 'slide-up');
+  // Force reflow so the initial position registers
+  void target.offsetWidth;
+
+  // Animate leaving screen out
+  leaving.classList.add(fromDir === 'down' ? 'slide-up' : 'slide-down');
+  leaving.classList.add('hidden');
+
+  // Animate target in
+  target.classList.remove('slide-up', 'slide-down');
+  _currentView = viewId;
+}
+
+function goHome() {
+  showView('home', 'up');
+}
+
+function goToTuner() {
+  freshStart();
+  showView('tuner', 'down');
+}
+
+function goToGarage() {
+  showView('tuner', 'down');
+  // Small delay so the tuner screen is visible before drawer opens
+  setTimeout(() => openLibrary(), 300);
+}
+
+
+let _lastTune = null;
+let _prevTune = null;   // snapshot before feedback regeneration
+let _isFeedbackRegen = false;
+let _engineSwap = false;
+let _prevLearnSnapshot = null;
+let libOpen = false;
+let libDelegateAttached = false;
+
+// ── Canvas setup ──────────────────────────────────────────────────────────────
+const smokeCanvas = document.getElementById('smokeCanvas');
+const sCtx = smokeCanvas.getContext('2d');
+const tmCanvas = document.getElementById('tiremarksCanvas');
+const tCtx = tmCanvas.getContext('2d');
+
+function resize() {
+  smokeCanvas.width = tmCanvas.width = window.innerWidth;
+  smokeCanvas.height = tmCanvas.height = window.innerHeight;
+  drawTiremarks();
+}
+resize();
+window.addEventListener('resize', resize);
+
+function drawTiremarks() {
+  tCtx.clearRect(0,0,tmCanvas.width,tmCanvas.height);
+  const W=tmCanvas.width, H=tmCanvas.height;
+  const marks=[
+    [W*.05,H*.25,W*.55,H*.65],[W*.1,H*.3,W*.6,H*.7],
+    [W*.45,H*.05,W*.95,H*.55],[W*.5,H*.1,W*1,H*.6],
+    [W*.0,H*.55,W*.45,H*1.0],[W*.05,H*.6,W*.5,H*1.05],
+    [W*.3,H*.0,W*.7,H*.4],
+  ];
+  marks.forEach(([x1,y1,x2,y2])=>{
+    const g=tCtx.createLinearGradient(x1,y1,x2,y2);
+    g.addColorStop(0,'rgba(220,20,20,0)');
+    g.addColorStop(0.25,'rgba(220,20,20,0.9)');
+    g.addColorStop(0.75,'rgba(220,20,20,0.9)');
+    g.addColorStop(1,'rgba(220,20,20,0)');
+    tCtx.strokeStyle=g; tCtx.lineWidth=5;
+    tCtx.beginPath(); tCtx.moveTo(x1,y1); tCtx.lineTo(x2,y2); tCtx.stroke();
+    const dx=y2-y1,dy=-(x2-x1),l=Math.sqrt(dx*dx+dy*dy),nx=dx/l*10,ny=dy/l*10;
+    tCtx.beginPath(); tCtx.moveTo(x1+nx,y1+ny); tCtx.lineTo(x2+nx,y2+ny); tCtx.stroke();
+  });
+}
+
+// ── Smoke particles ───────────────────────────────────────────────────────────
+class Smoke {
+  constructor(){ this.reset(); }
+  reset(){
+    const s=Math.random()<0.5?0:1;
+    this.x=s?-60:window.innerWidth+60;
+    this.y=window.innerHeight*(0.25+Math.random()*0.75);
+    this.vx=s?(0.2+Math.random()*0.7):-(0.2+Math.random()*0.7);
+    this.vy=-(0.05+Math.random()*0.35);
+    this.r=50+Math.random()*130;
+    this.life=0; this.maxLife=180+Math.random()*280;
+    this.maxOp=0.03+Math.random()*0.07;
+    this.op=0;
+    this.hue=Math.random()<0.65?0:210;
+  }
+  update(){
+    this.life++; this.x+=this.vx; this.y+=this.vy; this.r+=0.25;
+    const p=this.life/this.maxLife;
+    this.op=p<0.2?(p/0.2)*this.maxOp:this.maxOp*(1-(p-0.2)/0.8);
+    if(this.life>=this.maxLife)this.reset();
+  }
+  draw(c){
+    const g=c.createRadialGradient(this.x,this.y,0,this.x,this.y,this.r);
+    g.addColorStop(0,`hsla(${this.hue},55%,35%,${this.op})`);
+    g.addColorStop(1,`hsla(${this.hue},55%,15%,0)`);
+    c.fillStyle=g; c.beginPath(); c.arc(this.x,this.y,this.r,0,Math.PI*2); c.fill();
+  }
+}
+
+class Burst {
+  constructor(x,y){
+    this.x=x; this.y=y;
+    const a=Math.random()*Math.PI*2, sp=1.5+Math.random()*9;
+    this.vx=Math.cos(a)*sp; this.vy=Math.sin(a)*sp-1.5;
+    this.r=2+Math.random()*14; this.life=0; this.maxLife=35+Math.random()*45;
+    const cols = window._burstCols || ['#ff1e1e','#ff6a00','#ffb300','#ff3300'];
+    this.col=cols[Math.floor(Math.random()*cols.length)];
+    this.dead=false;
+  }
+  update(){
+    this.life++; this.x+=this.vx; this.y+=this.vy;
+    this.vy+=0.18; this.vx*=0.97; this.r*=0.955;
+    if(this.life>=this.maxLife||this.r<0.4)this.dead=true;
+  }
+  draw(c){
+    c.globalAlpha=1-this.life/this.maxLife;
+    c.fillStyle=this.col; c.shadowBlur=12; c.shadowColor=this.col;
+    c.beginPath(); c.arc(this.x,this.y,this.r,0,Math.PI*2); c.fill();
+    c.shadowBlur=0; c.globalAlpha=1;
+  }
+}
+
+const smokes=Array.from({length:28},()=>new Smoke());
+let bursts=[];
+
+function blast(){
+  const btn=document.getElementById('generateBtn');
+  const r=btn.getBoundingClientRect();
+  for(let i=0;i<70;i++) bursts.push(new Burst(r.left+r.width/2,r.top+r.height/2));
+}
+
+(function loop(){
+  sCtx.clearRect(0,0,smokeCanvas.width,smokeCanvas.height);
+  smokes.forEach(p=>{p.update();p.draw(sCtx);});
+  bursts=bursts.filter(p=>!p.dead);
+  bursts.forEach(p=>{p.update();p.draw(sCtx);});
+  requestAnimationFrame(loop);
+})();
+
+// ── RPM bar ───────────────────────────────────────────────────────────────────
+const rpmBar=document.getElementById('rpmBar');
+const cols=['#16a34a','#16a34a','#22c55e','#84cc16','#eab308','#f97316','#ef4444','#ff1e1e','#ff1e1e'];
+for(let i=0;i<18;i++){
+  const seg=document.createElement('div');
+  seg.className='rpm-seg';
+  const ci=Math.floor(i/18*cols.length);
+  seg.style.cssText=`background:${cols[Math.min(ci,cols.length-1)]};height:${8+(i/18)*22}px;--d:${0.4+Math.random()*0.9}s;animation-delay:${Math.random()*0.6}s`;
+  rpmBar.appendChild(seg);
+}
+
+// ── Generate button ────────────────────────────────────────────────────────────
+document.getElementById('generateBtn').addEventListener('click', generate);
+
+// ── PI Class HP clamping ───────────────────────────────────────────────────────
+const PI_HP_RANGES = {
+  D:  [50,  499],
+  C:  [300, 649],
+  B:  [400, 749],
+  A:  [450, 850],
+  S1: [500, 999],
+  S2: [600, 1200],
+  X:  [700, 2000],
+};
+function onPiClassChange(){
+  const pi = document.getElementById('piClass')?.value;
+  const hpInput = document.getElementById('horsepower');
+  if(!pi || !hpInput) return;
+  const [lo, hi] = PI_HP_RANGES[pi] || [50, 2000];
+  // Update placeholder to show the expected HP range
+  hpInput.placeholder = `${lo}–${hi} hp`;
+  // If user has entered an HP that's way outside range, nudge the placeholder
+  // but don't overwrite their value — let them decide
+  const currentHP = parseInt(hpInput.value);
+  if(currentHP && (currentHP < lo || currentHP > hi)){
+    hpInput.style.borderColor = 'rgba(255,179,0,0.6)';
+    hpInput.title = `${pi}-class cars typically run ${lo}–${hi} hp`;
+  } else {
+    hpInput.style.borderColor = '';
+    hpInput.title = '';
+  }
+}
+
+// ── Pill selection ─────────────────────────────────────────────────────────────
+let selDiscipline='grip', selDrive='RWD', selGears=6, selWeight='medium';
+document.querySelectorAll('[data-discipline]').forEach(el=>el.addEventListener('click',()=>{
+  document.querySelectorAll('[data-discipline]').forEach(p=>p.classList.remove('active'));
+  el.classList.add('active'); selDiscipline=el.dataset.discipline;
+}));
+document.querySelectorAll('[data-drive]').forEach(el=>el.addEventListener('click',()=>{
+  document.querySelectorAll('[data-drive]').forEach(p=>p.classList.remove('active'));
+  el.classList.add('active'); selDrive=el.dataset.drive;
+}));
+document.querySelectorAll('[data-gears]').forEach(el=>el.addEventListener('click',()=>{
+  document.querySelectorAll('[data-gears]').forEach(p=>p.classList.remove('active'));
+  el.classList.add('active'); selGears=+el.dataset.gears;
+}));
+document.querySelectorAll('[data-weight]').forEach(el=>el.addEventListener('click',()=>{
+  document.querySelectorAll('[data-weight]').forEach(p=>p.classList.remove('active'));
+  el.classList.add('active'); selWeight=el.dataset.weight;
+}));
+
+// ── Storage ───────────────────────────────────────────────────────────────────
+const LIB_KEY = 'FH5v2_library';
+const Store={
+  get(id){try{const d=localStorage.getItem('FH5v2_'+id);return d?JSON.parse(d):{learn:{rot:0,stiff:0,grip:0,brake:0,snap:0,gearAdj:[]},iterations:0,changelog:[],rideHeight:{fMin:'',fMax:'',rMin:'',rMax:''},aeroLimits:{fMin:'',fMax:'',rMin:'',rMax:''}};}catch(e){return{learn:{rot:0,stiff:0,grip:0,brake:0,snap:0,gearAdj:[]},iterations:0,changelog:[],rideHeight:{fMin:'',fMax:'',rMin:'',rMax:''},aeroLimits:{fMin:'',fMax:'',rMin:'',rMax:''}};}},
+  save(id,data){try{localStorage.setItem('FH5v2_'+id,JSON.stringify(data));}catch(e){}}
+};
+
+// ── Tune calc ─────────────────────────────────────────────────────────────────
+const roundHalf = v => Math.round(v * 2) / 2; // rounds to nearest 0.5
+
+function calcTune(L,disc,drive,numGears,weight,aeroLimits,rideLimits,hp,piClass){
+  numGears = numGears || 6;
+  weight = weight || 'medium';
+  const isDrift=disc==='drift',isDrag=disc==='drag',isRally=disc==='rally';
+  const isRWD=drive==='RWD',isAWD=drive==='AWD',isFWD=drive==='FWD';
+
+  const wt = weight==='light' ? -1 : weight==='heavy' ? 1 : 0;
+  const clamp = (v,lo,hi) => Math.max(lo,Math.min(hi,v));
+
+  // ── PI class scaling ────────────────────────────────────────────────────────
+  // PI class tells us the performance envelope independent of raw HP.
+  // Low-class cars (D/C) have smaller, less stiff suspension components and
+  // less downforce range. High-class cars (S2/X) are typically purpose-built
+  // race cars with much stiffer, more aggressive suspension setups.
+  // piScale: 0.0 = D-class, 0.5 = A-class (neutral midpoint), 1.0 = X-class
+  // When PI is unknown we infer it from HP so nothing breaks.
+  const piOrder = {D:0, C:1, B:2, A:3, S1:4, S2:5, X:6};
+  let piIdx;
+  if(piClass && piOrder[piClass] !== undefined){
+    piIdx = piOrder[piClass];
+  } else {
+    // Infer from HP: 200hp=D(0), 800hp+=X(6)
+    const hpForPI = (hp && hp > 0) ? hp : 500;
+    piIdx = clamp(Math.round((hpForPI - 200) / 100), 0, 6);
+  }
+  const piScale = piIdx / 6; // 0.0–1.0
+  const piDelta = piScale - 0.5; // -0.5 at D, 0 at A, +0.5 at X
+
+  // PI-class spring/ARB multiplier:
+  // D/C-class cars: softer suspension (smaller components, softer stock tune)
+  // S2/X-class cars: stiffer everything (race-spec components, high load)
+  const piSpringMult = 1 + piDelta * 0.30; // ±15% swing across the PI range
+  const piArbMult    = 1 + piDelta * 0.25;
+  const piDampMult   = 1 + piDelta * 0.20;
+
+  // ── HP scaling factor ────────────────────────────────────────────────────────
+  // hpMult: 0.0 at 200hp, 0.5 at 500hp (neutral midpoint), 1.0 at 800hp+
+  // Applied to springs, ARBs, dampers, camber, brake pressure, and diff.
+  // Source: QuickTune FH5 guide — 400hp+ requires meaningful chassis adjustments.
+  // Smooth linear scale avoids a hard cliff at 400hp.
+  const hpVal = (hp && hp > 0) ? hp : 500;
+  const hpMult = clamp((hpVal - 200) / 600, 0, 1); // 0.0→1.0 across 200–800hp
+  const hpDelta = hpMult - 0.5; // -0.5 at low power, 0 at 500hp, +0.5 at high power
+
+  // ── Tire pressures ──────────────────────────────────────────────────────────
+  // Grip learn lowers pressure as car gets more planted (more contact patch)
+  let fP,rP;
+  // Target cold pressures that settle to 32-34 PSI hot during racing
+  // Drag: high front pressure reduces rolling resistance; rear pressure per drivetrain
+  //   RWD: low rear (16) maximises contact patch on driven wheels at launch
+  //   AWD: moderate rear (18) — all four wheels share load
+  //   FWD: front is the driven axle, so front gets low pressure; rear stays moderate
+  if(isDrag){
+    if(isRWD){fP=37+wt*.8; rP=16+wt*.5;}
+    else if(isFWD){fP=28+wt*.5; rP=20+wt*.5;}
+    else{fP=37+wt*.8; rP=18+wt*.5;}
+  }
+  // Drift: high front (34) = snappy/responsive; lower rear (28) = more grip for controlled slides
+  // Research: DiamondLobby FH5: "front moderately soft 25-30 PSI, rears at their softest"
+  // Higher front than rear breaks rear traction while keeping front planted.
+  else if(isDrift){fP=34-L.grip*.4+wt*.6;rP=28-L.grip*.6+wt*.6;}
+  else if(isRally){fP=27-L.grip*.5+wt*.8;rP=26-L.grip*.8+wt*.8;}
+  else{
+    // Grip: rear lower than front for RWD (rotation), FWD front lower (driven axle), AWD balanced
+    fP=28.5-L.grip*.5+wt*.8;
+    rP=isRWD?27.5-L.grip*.8+wt*.8:isFWD?27.0-L.grip*.6+wt*.8:28-L.grip*.7+wt*.8;
+  }
+  fP=Math.max(20,roundHalf(fP)); rP=Math.max(12,roundHalf(rP));
+
+  // ── Alignment ───────────────────────────────────────────────────────────────
+  // rot learn: more rotation → more front camber (grip), less rear camber (rotate)
+  // Rear camber has a hard floor so it never goes positive or near-zero on any discipline
+  let fC,rC,fT,rT,cas;
+  if(isDrift){
+    fC=clamp(-(3.0+L.rot*.15),-5.0,-1.5);
+    // Drift rear camber: near-zero. Research (Drifted.com): "Rear Camber 0° to -0.5°"
+    // Too much negative rear camber reduces rear traction = uncontrollable slides.
+    rC=clamp(-(0.3+L.rot*.02),-0.5,0.0);
+    fT=-0.1; rT=+(0.1+L.rot*.01).toFixed(1); cas=6.5;
+  } else if(isDrag){
+    fC=-0.5;
+    // Drag rear camber: slight positive for RWD = reduces drag, helps straight-line launch
+    // Research (DiamondLobby): "rears in positive camber around 1.0°" for drag. AWD neutral.
+    rC=isAWD?-0.3:isRWD?0.8:0.5;
+    fT=0; rT=0; cas=5.0;
+  } else if(isRally){
+    fC=clamp(-(2.0+L.rot*.1),-4.0,-0.8);
+    rC=clamp(-(1.2-L.rot*.08),-3.5,-0.5);
+    fT=-0.1; rT=+(0.1+L.rot*.02).toFixed(1); cas=5.5;
+  } else {
+    // Grip base camber: -1.8° front (SimRacing: "start around -1.5° to -1.8°"). Rear -1.2°.
+    // HP scaling: QuickTune says +1.0° at 400hp+. hpDelta max=0.5, so *2.0 = +1.0 max correction ✅
+    fC=clamp(-(1.8+L.rot*.12+hpDelta*2.0),-4.5,-1.0);
+    // Rear: +0.7 at max HP (QuickTune: +1.0 aero builds, +0.5 no-aero)
+    rC=clamp(-(1.2-L.rot*.08+hpDelta*1.4),-3.5,-0.5);
+    fT=isFWD?-0.1:0; rT=+(isFWD?.1:0.1+L.rot*.02).toFixed(1); cas=isRWD?6.0:isFWD?6.5:(5.5+hpDelta*0.5);
+  }
+  fT=Math.round(fT*10)/10; rT=Math.round(+rT*10)/10;
+  const snapFix = L.snap||0;
+  if(snapFix>0) rT=Math.round(Math.min(0.5, rT+snapFix*0.1)*10)/10;
+
+  // ── Anti-roll bars ──────────────────────────────────────────────────────────
+  // rot learn: soften rear ARB for rotation, stiffen front for stability
+  let fA,rA;
+  if(isDrift){
+    // Drift: front softer for smoother entry, rear stiffer to help rotation
+    fA=clamp((26-L.rot*1.2+wt*2)*piArbMult,2,65);rA=clamp((28+L.rot*.6+wt*1.5)*piArbMult,2,65);
+  }
+  else if(isDrag){
+    // Drag: stiff front prevents dive, soft rear allows squat for weight transfer
+    // FWD drag rear needs to be low too (not 20) — FWD doesn't need rear ARB stiffness for launch
+    // Drag: stiff front ARB (38) prevents nose dive; rear very soft for squat
+    // Research (DiamondLobby): "ARBs set to stiffest" for weight transfer to front on launch
+    fA=clamp(38+wt*2,2,65);rA=clamp((isRWD?9:isAWD?14:12)+wt*1.5,2,65);
+  }
+  else if(isRally){
+    // Rally chassis: lower front, higher rear ARB (QuickTune: "rally and drift chassis requires lower front, higher rear ARB")
+    // High-power rally: QuickTune Part 4 says "ARB stiffness reduced by 24% for dirt"
+    const rallyHpScale = 1 - hpDelta * 0.24; // high HP = softer ARBs on loose surfaces
+    fA=clamp((18-L.rot*.8+wt*2)*rallyHpScale*piArbMult,2,65);rA=clamp((24+L.rot*.6+wt*1.5)*rallyHpScale*piArbMult,2,65);
+  }
+  // Grip — HP: scale ARB stiffness by hpDelta (high power needs stiffer ARBs to control body roll)
+  // PI: applied on top to account for class-specific component stiffness
+  else if(isRWD){fA=clamp((28-L.rot+wt*2)*(1+hpDelta*0.24)*piArbMult,2,65);rA=clamp((20+L.rot+wt*1.5)*(1+hpDelta*0.24)*piArbMult,2,65);}
+  // FWD: front ARB raised to 24 (from 18) — stiffer front limits roll and improves turn-in for FWD
+  else if(isFWD){fA=clamp((24-L.rot+wt*2)*(1+hpDelta*0.24)*piArbMult,2,65);rA=clamp((30+L.rot+wt*1.5)*(1+hpDelta*0.24)*piArbMult,2,65);}
+  else{fA=clamp((20-L.rot*1.5+wt*2)*(1+hpDelta*0.24)*piArbMult,2,65);rA=clamp((26+L.rot*1.5+wt*1.5)*(1+hpDelta*0.24)*piArbMult,2,65);}
+  if(snapFix>0){fA=clamp(fA+snapFix*1.5,2,65);rA=clamp(rA-snapFix*2,2,65);}
+
+  // ── Springs & Ride Height ───────────────────────────────────────────────────
+  // stiff learn: raises spring rates. grip learn: lowers ride height (more planted)
+  // weight: heavier = stiffer springs needed to control body roll
+  let fSp,rSp,fRd,rRd;
+  if(isDrift){
+    // Drift: front stiffer than rear. Widened gap to ~18% (from 8.5%) for more predictable rotation.
+    // Stiffer front keeps the nose planted; softer rear allows rotation with less snap risk.
+    fSp=clamp((720+L.stiff*50+wt*65)*piSpringMult,200,2000); rSp=clamp((590+L.stiff*40+wt*55)*piSpringMult,200,2000);
+    fRd=Math.max(3.8,5.0-L.grip*.12); rRd=Math.max(4.0,5.2-L.grip*.10);
+  } else if(isDrag){
+    // Drag: weight transfers rearward on launch, plants driven wheels
+    // RWD: rear slightly stiffer. AWD: DiamondLobby says "soft all around" — small split only.
+    // FWD: front stiffer keeps weight on driven axle
+    if(isRWD){fSp=clamp(680+wt*60,200,2000); rSp=clamp(780+wt*65,200,2000);}
+    else if(isFWD){fSp=clamp(820+wt*70,200,2000); rSp=clamp(620+wt*55,200,2000);}
+    // AWD drag: DiamondLobby: "incredibly soft all around except front bump/rebound"
+    else{fSp=clamp(360+wt*40,200,2000); rSp=clamp(400+wt*45,200,2000);}
+    fRd=4.8; rRd=3.8;
+  } else if(isRally){
+    // Rally: softer overall for rough surfaces, higher ride height for ground clearance
+    // Rally springs ~50% of grip pace (QuickTune H4: "half spring rates vs race suspension")
+    // PI: still scaled so D-class rally cars don't get X-class stiffness
+    fSp=clamp((380+L.stiff*30+wt*45)*piSpringMult,200,2000); rSp=clamp((355+L.stiff*25+wt*40)*piSpringMult,200,2000);
+    fRd=Math.max(6.0,7.0-L.grip*.12); rRd=Math.max(6.2,7.2-L.grip*.10);
+  } else {
+    // Grip: start near minimum — lower CoG is almost always faster
+    // HP: scale spring stiffness — high power requires stiffer springs to resist chassis flex
+    // PI: low-class cars have softer components; high-class cars run stiffer race-spec suspension
+    const hpSpringScale = 1 + hpDelta * 0.24;
+    // FWD: engine weight over front wheels = stiffer front base (680 vs 700 is subtle but correct)
+    // RWD: front 700, rear 620 (rear lighter, slightly softer) ✅
+    // AWD: balanced, slightly softer front than RWD at 660
+    const fSpBase = isRWD?700:isFWD?680:660;
+    const rSpBase = isRWD?620:isFWD?600:640;
+    fSp=clamp((fSpBase+L.stiff*45+wt*65)*hpSpringScale*piSpringMult,200,2000); rSp=clamp((rSpBase+L.stiff*40+wt*60)*hpSpringScale*piSpringMult,200,2000);
+    fRd=isRWD?Math.max(3.8,4.8-L.grip*.15):isFWD?Math.max(3.6,4.6-L.grip*.15):Math.max(3.7,4.7-L.grip*.15);
+    rRd=isRWD?Math.max(4.0,5.0-L.grip*.15):isFWD?Math.max(3.8,4.8-L.grip*.15):Math.max(3.9,4.9-L.grip*.15);
+  }
+  if(snapFix>0) rSp=clamp(rSp-snapFix*35,200,2000);
+
+  // ── Clamp ride height to car's actual hardware range ──────────────────────
+  const rl = rideLimits || {};
+  const hasFRH = rl.fMin!==''&&rl.fMin!=null&&rl.fMax!==''&&rl.fMax!=null;
+  const hasRRH = rl.rMin!==''&&rl.rMin!=null&&rl.rMax!==''&&rl.rMax!=null;
+  if(hasFRH) fRd = Math.round(clamp(fRd, +rl.fMin, +rl.fMax) * 10) / 10;
+  if(hasRRH) rRd = Math.round(clamp(rRd, +rl.rMin, +rl.rMax) * 10) / 10;
+
+  // ── Damping ─────────────────────────────────────────────────────────────────
+  // stiff learn: raises rebound. brake learn: stiffens front bump, softens rear bump
+  // Bump should be ~50-60% of rebound (industry standard for road racing)
+  let fR,rR;
+  if(isDrag){
+    // Drag: front rebound moderate, rear rebound LOWER (softer rear lets car squat on launch)
+    // RWD: exaggerate the squat effect. FWD: reverse — front needs to stay planted.
+    if(isRWD){fR=clamp(9.5+wt*.6,1,20); rR=clamp(6.5+wt*.4,1,20);}
+    else if(isFWD){fR=clamp(8.0+wt*.5,1,20); rR=clamp(9.0+wt*.5,1,20);}
+    // AWD drag: DiamondLobby: "stiff front rebound and bump, soft everything else"
+    else{fR=clamp(14.0+wt*.4,1,20); rR=clamp(5.0+wt*.3,1,20);}
+  }
+  else if(isDrift){fR=clamp(9.5+L.stiff*.35+wt*.6,1,20);rR=clamp(8.0+L.stiff*.28+wt*.5,1,20);}
+  else if(isRally){fR=clamp(7.5+L.stiff*.35+wt*.6,1,20);rR=clamp(6.5+L.stiff*.28+wt*.5,1,20);}
+  else{
+    // Grip — HP: stiffen front rebound for high-power cars to control corner entry
+    // PI: stiffen damping for high-class builds (race-spec dampers)
+    fR=clamp((8.5+L.stiff*.35+wt*.6+hpDelta*2.5)*piDampMult,1,20);
+    rR=clamp((7.0+L.stiff*.28+wt*.5)*piDampMult,1,20); // rear stays neutral — stiffening rear hurts rotation
+  }
+  const brakeAdj = L.brake||0;
+  // ForzaTune checklist: "Is bump about two-thirds of rebound?" — raise ratio from 0.55 to 0.62
+  // AWD drag fB gets special treatment: stiff front bump per DiamondLobby
+  const fB = isDrag&&isAWD ? clamp(fR*.85,1,20) : isDrag ? clamp(fR*.62,1,20) : clamp(fR*.62+brakeAdj*.20,1,20);
+  const rB = isDrag ? clamp(rR*.55,1,20) : clamp(rR*.62-brakeAdj*.14,1,20);
+
+  // ── Aero ────────────────────────────────────────────────────────────────────
+  // When the user has entered their car's actual aero min/max from the game,
+  // we scale within that real range. Without limits, we use sensible defaults.
+  // rot learn shifts balance rearward. snap learn plants the rear.
+  let fAe,rAe;
+  const aeroRotAdj  = L.rot * 2;
+  const aeroSnapAdj = snapFix * 3;
+  const wtAero = wt * 40;
+
+  const al = aeroLimits || {};
+  const hasFLimits = al.fMin!==''&&al.fMin!=null&&al.fMax!==''&&al.fMax!=null;
+  const hasRLimits = al.rMin!==''&&al.rMin!=null&&al.rMax!==''&&al.rMax!=null;
+
+  if(isDrag){
+    // Aero off for drag — reduces drag and improves top speed
+    // Exception: AWD high-HP builds get a small front downforce to combat front-lift at launch
+    // hpMult > 0.6 = 560hp+ — meaningful enough to need downforce correction
+    if(isAWD && hasFLimits) {
+      const fMin = +al.fMin, fMax = +al.fMax;
+      // Target ~15% of front range at neutral HP, scaling up to ~30% at max HP
+      fAe = Math.round(clamp(fMin + (fMax - fMin) * (0.15 + hpMult * 0.15), fMin, fMax));
+    } else if(isAWD) {
+      fAe = Math.round(clamp(hpMult * 60, 0, 80)); // fallback: 0–80 lb depending on HP
+    } else {
+      fAe = 0;
+    }
+    rAe=0;
+  } else {
+    // ── Determine target position within range (0–1) ─────────────────────────
+    // These represent where in the available range we want to sit at neutral learn,
+    // then learn/weight nudge the position up or down within that range.
+
+    // Neutral target positions (fraction of the available range)
+    let fTarget, rTarget;
+    if(isDrift){
+      fTarget = 0.35; rTarget = 0.55; // drift sits lower front, higher rear
+    } else if(isRally){
+      fTarget = 0.50; rTarget = 0.55;
+    } else {
+      // Grip: start at ~55% front, ~50% rear — meaningful downforce, room to grow
+      fTarget = isRWD?0.55:isFWD?0.45:0.50;
+      rTarget = isRWD?0.48:isFWD?0.42:0.45;
+    }
+
+    // Learn adjustments shift the position within the range (-0.3 to +0.3 max swing)
+    const fLearnAdj = (-aeroRotAdj + wtAero/200);           // rot reduces front
+    const rLearnAdj = ( aeroRotAdj + aeroSnapAdj + wtAero/200); // rot/snap add rear
+
+    if(hasFLimits && hasRLimits){
+      // ── Scale within actual car hardware range ───────────────────────────
+      const fMin = +al.fMin, fMax = +al.fMax;
+      const rMin = +al.rMin, rMax = +al.rMax;
+      const fRange = fMax - fMin;
+      const rRange = rMax - rMin;
+
+      fAe = Math.round(clamp(fMin + fRange*(fTarget + fLearnAdj*0.015), fMin, fMax));
+      rAe = Math.round(clamp(rMin + rRange*(rTarget + rLearnAdj*0.015), rMin, rMax));
+    } else {
+      // ── Fallback: no limits entered, use absolute values ─────────────────
+      if(isDrift){
+        fAe=clamp(200+wtAero,0,600); rAe=clamp(350+wtAero,0,600);
+      } else if(isRally){
+        fAe=clamp(Math.round(250+wtAero-aeroRotAdj), 120, 600);
+        rAe=clamp(Math.round(380+wtAero+aeroRotAdj+aeroSnapAdj), 160, 600);
+      } else {
+        const fBase = isRWD?350:isFWD?280:320;
+        const rBase = isRWD?420:isFWD?300:390;
+        fAe=clamp(Math.round(fBase+wtAero-aeroRotAdj), 150, 600);
+        rAe=clamp(Math.round(rBase+wtAero+aeroRotAdj+aeroSnapAdj), 180, 600);
+      }
+    }
+  }
+
+  // ── Brakes ──────────────────────────────────────────────────────────────────
+  // brake learn: moves bias forward. heavy = more front bias to stop the mass.
+  // Clamped 40-70% — FH5 hard limits
+  let bb,bp;
+  // HP: scale brake pressure — high power cars need more brake force to stop
+  const hpBrakePressure = clamp(100 + hpDelta*40, 80, 200);
+  if(isDrift){bb=clamp(52-brakeAdj-wt*1.5,40,70);bp=clamp(hpBrakePressure,80,150);}
+  else if(isDrag){bb=clamp(50-brakeAdj*.5,40,70);bp=85;}
+  else if(isRally){
+    // Rally: slight rear bias vs grip (looser surfaces need rear braking for rotation/Scandinavian flick)
+    if(isRWD){bb=clamp(48-brakeAdj-wt*1.5,40,70);}
+    else if(isFWD){bb=clamp(54-brakeAdj-wt*1.5,40,70);}
+    else{bb=clamp(50-brakeAdj-wt*1.5,40,70);}
+    bp=clamp(hpBrakePressure,80,150);
+  }
+  else if(isFWD){bb=clamp(58-brakeAdj-wt*1.5,40,70);bp=clamp(hpBrakePressure,80,150);}
+  else{bb=clamp(52-brakeAdj-wt*1.5,40,70);bp=clamp(hpBrakePressure+L.stiff*.5,80,200);}
+
+  // ── Differential ────────────────────────────────────────────────────────────
+  let aD,dD,fDf,fDD,rDA,rDD;
+  if(isDrift){aD=100;dD=100;}
+  else if(isDrag){
+    // AWD drag: QuickTune rule: front decel=0, rear decel=100 always
+    // Front/rear accel max for drag launch; center 70% rear bias
+    if(isAWD){fDf=38;fDD=0;rDA=85;rDD=100;aD=70;dD=0;}
+    else{aD=clamp(95,0,100);dD=0;}
+  }
+  else if(isRally){
+    // Rally: more open diff than grip for loose surfaces — traction control via diff rather than lock
+    // RWD rally: more open diff for loose surface. Decel 0-20 range (DiamondLobby RWD guidance)
+    if(isRWD){aD=clamp(50+L.rot*2,0,100); dD=clamp(15+L.stiff*1.2,0,30);}
+    else if(isFWD){
+      aD=clamp(45+L.rot*2,0,100);
+      dD=clamp(10-L.rot,0,100); // FWD decel near-open to prevent braking snap on gravel
+    }
+    else{ // AWD rally
+      fDf=clamp(Math.round(22+L.rot*1.2-hpDelta*6),8,32);
+      fDD=0; // QuickTune: front decel ALWAYS 0 for AWD
+      // Rally rear accel: SegmentNext "rally builds closer to upper extremity" (10-50% front → higher rear)
+      // Lower bound eased to 40% — loose surfaces sometimes want a more open diff
+      rDA=clamp(Math.round(60+L.rot*2.0),40,80);
+      rDD=100; // QuickTune: rear decel ALWAYS 100 for AWD
+      // Rally center: SegmentNext "keep rally builds closer to 50%"
+      aD=clamp(Math.round(58+L.rot*1.2),48,72);
+      dD=0;
+    }
+  }
+  else if(isFWD){
+    // FWD accel: TheGamer "10-60% front diff, go lower the faster". 30% baseline (not 55).
+    // ForzaTune checklist: "trouble putting down power on exit? Decrease diff accel."
+    // High-HP FWD needs a lower floor — competitive builds can run 10-15%
+    const fwdAccelFloor = Math.max(10, 30 - Math.round(hpMult * 18)); // 30% at 200hp, ~12% at 800hp
+    aD=clamp(fwdAccelFloor+L.rot*2-hpDelta*6,0,60);
+    // FWD decel: near-open prevents braking snap on trail braking (confirmed multiple sources)
+    dD=clamp(8-L.rot,0,20);
+  }
+  else if(isAWD){
+    // AWD front accel: Windows Central "start around 25%", TheGamer "10-60% go lower for faster cars"
+    fDf=clamp(Math.round(25+L.rot*1.2-hpDelta*8),8,35);
+    // AWD front decel: QuickTune (authoritative): "leave front decel ALWAYS at 0%"
+    fDD=0;
+    // AWD rear accel: Windows Central "start 40-60%", Steam guide "50-90% higher usually better"
+    // 55% baseline is conservative and safe; rot learn can push toward 70%
+    rDA=clamp(Math.round(55+L.rot*2.5),45,80);
+    // AWD rear decel: QuickTune: "leave rear decel ALWAYS at 100%"
+    rDD=100;
+    // Center diff: ForzaTune "60-70%", Windows Central "70-90%". 65% baseline ✅
+    aD=clamp(Math.round(65+L.rot*1.5),55,80);
+    dD=0;
+  }
+  else{
+    // RWD grip: rot increases accel (more rotation on power)
+    aD=clamp(55+L.rot*2-hpDelta*12,0,100);
+    // RWD decel: DiamondLobby "0-20 for decel". Was 35 — too high. Fix: 15 baseline.
+    dD=clamp(15+L.stiff*1.2,0,35);
+  }
+
+  // ── Gearing ─────────────────────────────────────────────────────────────────
+  // Final drive: HP-aware scaling. More HP = taller (higher number in FH5 = shorter gearing,
+  // so we invert: low HP needs a shorter/higher ratio, high HP needs a taller/lower ratio).
+  // Base targets tuned per discipline/drive, then scaled by HP deviation from 500hp midpoint.
+  let firstRatio,lastRatio,finalDrive;
+  // hpVal/hpDelta already declared above — reuse hpDelta for final drive scaling
+  // Each 0.1 of hpDelta shifts final drive by ~0.08 (taller gearing for more power)
+  const hpAdj = hpDelta * 0.8;
+
+  if(isDrag){
+    const base = isAWD?4.50:4.20;
+    finalDrive = +(base - hpAdj).toFixed(2);
+    firstRatio=4.80; lastRatio=0.55;
+  } else if(isDrift){
+    const base = isRWD?4.20:3.90;
+    finalDrive=+(base - hpAdj + L.rot*0.04).toFixed(2);
+    firstRatio=4.20; lastRatio=0.68;
+  } else if(isRally){
+    const base = isAWD?4.75:4.50;
+    finalDrive = +(base - hpAdj).toFixed(2);
+    firstRatio=4.20; lastRatio=0.55;
+  } else {
+    // Grip: FWD needs shorter gearing to compensate for understeer/torque steer
+    const base = isRWD?4.70:isFWD?4.90:4.78;
+    finalDrive = +(base - hpAdj).toFixed(2);
+    firstRatio=4.14;
+    lastRatio=+Math.max(0.56,0.62-L.grip*0.004).toFixed(2);
+  }
+  // Also apply learn adjustment from manual fd edits (stored in L.fdAdj)
+  if(L.fdAdj) finalDrive = +(finalDrive + L.fdAdj).toFixed(2);
+  finalDrive = +clamp(finalDrive, 2.00, 6.50).toFixed(2);
+  let gears;
+  if(numGears===1){gears=[firstRatio];}
+  else{
+    const r=Math.pow(lastRatio/firstRatio,1/(numGears-1));
+    gears=Array.from({length:numGears},(_,i)=>+Math.max(0.50,firstRatio*Math.pow(r,i)).toFixed(2));
+  }
+  const gearAdj=Array.isArray(L.gearAdj)?L.gearAdj:[];
+  gears=gears.map((g,i)=>+clamp(g-( gearAdj[i]||0)*0.04,0.50,6.00).toFixed(2));
+
+  return{tires:{fP,rP},align:{fC,rC,fT,rT,cas},arb:{fA,rA},springs:{fSp,rSp,fRd,rRd},damp:{fR,rR,fB,rB},aero:{fAe,rAe},brakes:{bb,bp},diff:{aD,dD,fDf,fDD,rDA,rDD,isAWD},gearing:{gears,finalDrive}};
+}
+
+const f=(n,d=1)=>n==null?'—':Number(n).toFixed(d);
+
+// Build an editable tune value cell
+// id = unique field id, val = numeric value, unit = display suffix, dp = decimal places, hi = highlight amber
+function ev(id, val, unit='', dp=1, hi=false){
+  const display = val==null ? '—' : Number(val).toFixed(dp);
+  const cls = hi ? 'tune-val-input highlight' : 'tune-val-input';
+  const unitSpan = unit ? `<span class="tune-val-unit">${unit}</span>` : '';
+  return `<span class="tune-val-wrap"><input type="number" class="${cls}" id="tv_${id}" value="${display}" step="${Math.pow(10,-dp)}" onchange="tuneValChanged('${id}',this.value)">${unitSpan}</span>`;
+}
+
+function tuneValChanged(id, val){
+  // Mark the feedback button to show a manual edit is pending
+  const btn = document.getElementById('feedbackBtn');
+  if(btn && !btn.classList.contains('has-manual-edit')){
+    btn.classList.add('has-manual-edit');
+    btn.textContent = '⚡ APPLY FEEDBACK + REGENERATE  ✎';
+  }
+}
+
+// Read all currently displayed tune input values and return as a flat map
+function readDisplayedTune() {
+  const vals = {};
+  document.querySelectorAll('.tune-val-input[id^="tv_"]').forEach(el => {
+    vals[el.id.replace('tv_', '')] = parseFloat(el.value);
+  });
+  return vals;
+}
+
+// Bake manual input edits into car.learn by comparing displayed values
+// against what calcTune would have produced from the current learn state.
+// The delta (manual edit - calculated) gets reverse-engineered into learn params.
+function bakeManualEditsIntoLearn(car, disc, drive, gears, weight, hp, piClass) {
+  const displayed = readDisplayedTune();
+  const calculated = calcTune(car.learn, disc, drive, gears, weight, null, car.rideHeight, hp, piClass);
+  const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+
+  // Helper: how much did the user shift this value vs what was calculated?
+  const delta = (key, calcVal) => {
+    const d = displayed[key];
+    return (d !== undefined && !isNaN(d)) ? d - calcVal : 0;
+  };
+
+  // ── Tire pressure → grip learn
+  // Lower pressure = more grip. If user lowered pressure, they want more grip.
+  const fPDelta = delta('fP', calculated.tires.fP);
+  const rPDelta = delta('rP', calculated.tires.rP);
+  const pressureDelta = -(fPDelta + rPDelta) / 2; // invert: lower pressure = positive grip signal
+  if (Math.abs(pressureDelta) > 0.1) {
+    // Drift grip is inverted (negative = less grip = more slide), so clamp accordingly
+    const gripLo = disc === 'drift' ? -6 : 0;
+    const gripHi = disc === 'drift' ? 0  : 8;
+    car.learn.grip = clamp(car.learn.grip + pressureDelta * 0.5, gripLo, gripHi);
+  }
+
+  // ── Camber → rot learn
+  // More front camber (more negative) = user wants more grip/rotation
+  const fCDelta = delta('fC', calculated.align.fC);
+  if (Math.abs(fCDelta) > 0.05) {
+    car.learn.rot = clamp(car.learn.rot + fCDelta * -1.2, -8, 8); // more neg camber = more rot
+  }
+
+  // ── ARB → rot learn
+  // Lower rear ARB relative to front = more rotation
+  const fADelta = delta('fA', calculated.arb.fA);
+  const rADelta = delta('rA', calculated.arb.rA);
+  const arbSignal = fADelta - rADelta; // front up/rear down = more rotation
+  if (Math.abs(arbSignal) > 0.2) {
+    car.learn.rot = clamp(car.learn.rot + arbSignal * 0.12, -8, 8);
+  }
+
+  // ── Springs → stiff learn
+  const fSpDelta = delta('fSp', calculated.springs.fSp);
+  const rSpDelta = delta('rSp', calculated.springs.rSp);
+  const springSignal = (fSpDelta + rSpDelta) / 2;
+  if (Math.abs(springSignal) > 5) {
+    car.learn.stiff = clamp(car.learn.stiff + springSignal * 0.012, -8, 8);
+  }
+
+  // ── Damping (rebound) → stiff learn
+  const fRDelta = delta('fR', calculated.damp.fR);
+  const rRDelta = delta('rR', calculated.damp.rR);
+  const dampSignal = (fRDelta + rRDelta) / 2;
+  if (Math.abs(dampSignal) > 0.1) {
+    car.learn.stiff = clamp(car.learn.stiff + dampSignal * 0.4, -8, 8);
+  }
+
+  // ── Brake bias → brake learn
+  const bbDelta = delta('bb', calculated.brakes.bb);
+  if (Math.abs(bbDelta) > 0.1) {
+    // More forward bias (positive delta) = user is pushing brake bias forward = negative brake learn
+    car.learn.brake = clamp(car.learn.brake - bbDelta * 0.15, 0, 8);
+  }
+
+  // ── Rear toe → snap learn
+  const rTDelta = delta('rT', calculated.align.rT);
+  if (Math.abs(rTDelta) > 0.05) {
+    // More rear toe-in (positive) = user is adding snap fix
+    car.learn.snap = clamp((car.learn.snap || 0) + rTDelta * 8, 0, 6);
+  }
+
+  // ── Gear ratios → gearAdj
+  if (!Array.isArray(car.learn.gearAdj)) car.learn.gearAdj = [];
+  calculated.gearing.gears.forEach((calcRatio, i) => {
+    const displayedRatio = displayed['g' + (i + 1)];
+    if (displayedRatio !== undefined && !isNaN(displayedRatio)) {
+      const ratioDelta = calcRatio - displayedRatio; // lower ratio = user shifted right = positive adj
+      const adjShift = ratioDelta / 0.04; // reverse of the 0.04 multiplier in calcTune
+      if (Math.abs(adjShift) > 0.1) {
+        car.learn.gearAdj[i] = clamp((car.learn.gearAdj[i] || 0) + adjShift, -12, 12);
+      }
+    }
+  });
+
+  // Final drive manual edit — bake into rot as a proxy (shorter final = more responsive/rotation feel)
+  const fdDelta = delta('fd', calculated.gearing.finalDrive);
+  if (Math.abs(fdDelta) > 0.01 && disc === 'drift') {
+    car.learn.rot = clamp(car.learn.rot - fdDelta * 3, -8, 8);
+  }
+  // For all disciplines: remember the manual fd offset directly so it persists next iteration
+  if (Math.abs(fdDelta) > 0.01) {
+    car.learn.fdAdj = clamp((car.learn.fdAdj || 0) + fdDelta, -1.5, 1.5);
+  }
+}
+
+function renderTune(tune,carName,disc,drive,car,weight,piClass){
+  weight = weight || 'medium';
+  const T=tune,D=T.diff,L=car.learn,it=car.iterations||0;
+  const diffRows=D.isAWD&&D.fDf!=null?`
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 20px">
+      <div>
+        <div style="font-family:var(--font-mono);font-size:8px;letter-spacing:2px;color:var(--text-dim);text-transform:uppercase;padding:6px 0 4px;border-bottom:1px solid rgba(255,255,255,0.04);margin-bottom:4px">Front Axle</div>
+        <div class="tune-row"><span class="tune-key">Accel</span>${ev('fDf',D.fDf,'%',0)}</div>
+        <div class="tune-row"><span class="tune-key">Decel</span>${ev('fDD',D.fDD,'%',0)}</div>
+      </div>
+      <div>
+        <div style="font-family:var(--font-mono);font-size:8px;letter-spacing:2px;color:var(--text-dim);text-transform:uppercase;padding:6px 0 4px;border-bottom:1px solid rgba(255,255,255,0.04);margin-bottom:4px">Rear Axle</div>
+        <div class="tune-row"><span class="tune-key">Accel</span>${ev('rDA',D.rDA,'%',0)}</div>
+        <div class="tune-row"><span class="tune-key">Decel</span>${ev('rDD',D.rDD,'%',0)}</div>
+      </div>
+    </div>
+    <div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.04)">
+      <div class="tune-row"><span class="tune-key">Center balance (rear %)</span>${ev('aD',D.aD,'%',0,true)}</div>
+    </div>
+  `:`
+    <div class="tune-row"><span class="tune-key">Accel diff</span>${ev('aD',D.aD,'%',0,true)}</div>
+    <div class="tune-row"><span class="tune-key">Decel diff</span>${ev('dD',D.dD,'%',0)}</div>
+  `;
+  const lp=(v,s=5)=>Math.min(100,Math.max(0,(v/s*50)+50));
+
+  // ── Changelog ──────────────────────────────────────────────────────────────
+  const changelogHTML = (()=>{
+    const log = Array.isArray(car.changelog) ? car.changelog : [];
+    if(!log.length) return '';
+    const entries = log.map(entry=>{
+      const checksStr = entry.checks && entry.checks.length ? entry.checks.join(' · ') : 'Sliders only';
+      const deltaChips = entry.deltas.map(d=>{
+        if(d.diff===null) return `<span class="changelog-delta neutral">Gearing adjusted</span>`;
+        const sign = d.diff>0?'+':'';
+        const cls  = d.diff>0?'pos':'neg';
+        return `<span class="changelog-delta ${cls}">${d.label} ${sign}${d.diff.toFixed(2)}</span>`;
+      }).join('');
+      return `<div class="changelog-entry"><div class="changelog-entry-header"><span class="changelog-iter">ITER ${entry.iter}</span><span class="changelog-checks">${checksStr}</span></div><div class="changelog-deltas">${deltaChips||'<span class="changelog-delta neutral">No learn state change</span>'}</div></div>`;
+    }).join('');
+    return `<div class="changelog-panel"><div class="changelog-title">⚡ Tune Change Log</div><div class="changelog-legend"><span class="changelog-delta pos" style="font-size:8px;padding:2px 6px">▲ INCREASED</span><span class="changelog-delta neg" style="font-size:8px;padding:2px 6px">▼ DECREASED</span><span class="changelog-delta neutral" style="font-size:8px;padding:2px 6px">~ ADJUSTED</span><span style="font-family:var(--font-mono);font-size:8px;color:var(--text-dim);letter-spacing:1px;align-self:center">learn values per iteration</span></div><div class="changelog-list" id="changelogList">${entries}</div>${log.length>3?`<button class="changelog-show-all" id="changelogToggle" onclick="toggleChangelog()">▼ SHOW ALL ${log.length} ITERATIONS</button>`:''}</div>`;
+  })();
+
+  return`
+  <div class="tune-header">
+    <div class="tune-car-name">${carName||'UNNAMED CAR'}</div>
+    <div class="tune-meta">
+      <span class="badge badge-red">${disc.toUpperCase()}</span>
+      <span class="badge badge-amber">${drive}</span>
+      <span class="badge badge-dim">${weight.toUpperCase()}</span>
+      ${piClass?`<span class="badge badge-pi">${piClass}</span>`:''}
+      ${it>0?`<span class="badge badge-dim iteration-badge"><span class="iteration-dot"></span>${it} ITERATION${it!==1?'S':''}</span>`:''}
+    </div>
+  </div>
+  ${it>0?`<div class="learn-state">
+    <div class="learn-state-title">⚡ Adaptive Learning State</div>
+    <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid rgba(255,255,255,0.05)">
+      ${[
+        ['Rotation','Controls over/understeer balance — ARB, camber, diff, toe'],
+        ['Stiffness','Spring & damper rates — how the car rides bumps and rolls'],
+        ['Grip','Tire pressures & ride height — contact patch and traction'],
+        ['Brake Bias','Front bump stiffness & brake % — stability under braking'],
+        ['Snap Fix','Rear toe-in & ARB split — prevents sudden rear breakaway'],
+      ].map(([name,desc])=>`<span style="font-family:var(--font-mono);font-size:8px;letter-spacing:1px;color:var(--text-dim);cursor:help;border-bottom:1px dotted rgba(255,179,0,0.3)" title="${desc}">${name}: ?</span>`).join('')}
+    </div>
+    <div class="learn-bars">${[['Rotation',L.rot,8],['Stiffness',L.stiff,8],['Grip',L.grip,8],['Brake',L.brake,8],['Snap Fix',L.snap||0,6]].map(([lb,v,s])=>`
+      <div class="learn-bar-row">
+        <div class="learn-bar-label"><span>${lb}</span><span>${v>=0?'+':''}${v.toFixed(2)}</span></div>
+        <div class="learn-bar-track"><div class="learn-bar-fill" style="left:${lp(0,s)}%;width:${Math.abs(lp(v,s)-lp(0,s))}%"></div></div>
+      </div>`).join('')}
+    </div>
+  </div>`:''}
+  <div class="tune-grid">
+    <div class="tune-card"><div class="tune-card-title">Tires</div>
+      <div class="tune-row"><span class="tune-key">Front pressure</span>${ev('fP',T.tires.fP,'PSI',1,true)}</div>
+      <div class="tune-row"><span class="tune-key">Rear pressure</span>${ev('rP',T.tires.rP,'PSI',1,true)}</div>
+    </div>
+    <div class="tune-card"><div class="tune-card-title">Alignment</div>
+      <div class="tune-row"><span class="tune-key">Front camber</span>${ev('fC',T.align.fC,'°',1)}</div>
+      <div class="tune-row"><span class="tune-key">Rear camber</span>${ev('rC',T.align.rC,'°',1)}</div>
+      <div class="tune-row"><span class="tune-key">Front toe</span>${ev('fT',T.align.fT,'',1)}</div>
+      <div class="tune-row"><span class="tune-key">Rear toe</span>${ev('rT',T.align.rT,'',1)}</div>
+      <div class="tune-row"><span class="tune-key">Caster</span>${ev('cas',T.align.cas,'°',1)}</div>
+    </div>
+    <div class="tune-card"><div class="tune-card-title">Anti-Roll Bars</div>
+      <div class="tune-row"><span class="tune-key">Front ARB</span>${ev('fA',T.arb.fA,'',1,true)}</div>
+      <div class="tune-row"><span class="tune-key">Rear ARB</span>${ev('rA',T.arb.rA,'',1,true)}</div>
+    </div>
+    <div class="tune-card"><div class="tune-card-title">Springs & Ride</div>
+      <div class="tune-row"><span class="tune-key">Front spring</span>${ev('fSp',T.springs.fSp,'lb/in',0)}</div>
+      <div class="tune-row"><span class="tune-key">Rear spring</span>${ev('rSp',T.springs.rSp,'lb/in',0)}</div>
+      <div class="tune-row"><span class="tune-key">Front ride height</span>${ev('fRd',T.springs.fRd,'"',1)}</div>
+      <div class="tune-row"><span class="tune-key">Rear ride height</span>${ev('rRd',T.springs.rRd,'"',1)}</div>
+    </div>
+    <div class="tune-card"><div class="tune-card-title">Damping</div>
+      <div class="tune-row"><span class="tune-key">Front rebound</span>${ev('fR',T.damp.fR,'',1)}</div>
+      <div class="tune-row"><span class="tune-key">Rear rebound</span>${ev('rR',T.damp.rR,'',1)}</div>
+      <div class="tune-row"><span class="tune-key">Front bump</span>${ev('fB',T.damp.fB,'',1)}</div>
+      <div class="tune-row"><span class="tune-key">Rear bump</span>${ev('rB',T.damp.rB,'',1)}</div>
+    </div>
+    <div class="tune-card"><div class="tune-card-title">Aero & Brakes</div>
+      <div class="tune-row"><span class="tune-key">Front downforce</span>${ev('fAe',T.aero.fAe,'lb',0)}</div>
+      <div class="tune-row"><span class="tune-key">Rear downforce</span>${ev('rAe',T.aero.rAe,'lb',0)}</div>
+      <div class="tune-row"><span class="tune-key">Brake bias (front)</span>${ev('bb',T.brakes.bb,'%',1,true)}</div>
+      <div class="tune-row"><span class="tune-key">Brake pressure</span>${ev('bp',T.brakes.bp,'%',0)}</div>
+    </div>
+  </div>
+  <div class="tune-card" style="animation-delay:.36s">
+    <div class="tune-card-title">Differential</div>
+    ${diffRows}
+  </div>
+  <div class="tune-card" style="animation-delay:.42s;grid-column:1/-1">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+      <div class="tune-card-title" style="margin-bottom:0">Gearing</div>
+      <div class="gear-tooltip-icon"
+        data-tip-gear="all"
+        data-tip-left="${disc==='drag'||disc==='rally'?'BOGS':'SNAPPY'}"
+        data-tip-right="${disc==='drag'||disc==='rally'?'RUNS OUT':'DROPS'}"
+        data-tip-ldesc="${(disc==='drift'?'Car snaps out or spins on entry — too much power surge when shifting into this gear':disc==='drag'?'Engine bogs or drops revs when launching or shifting into this gear':disc==='rally'?'Engine falls out of powerband or bogs on gravel/dirt in this gear':'Rear steps out or spins when the car shifts into this gear').replace(/"/g,'&quot;')}"
+        data-tip-rdesc="${(disc==='drift'?'Slide dies or car straightens out — not enough pull to hold the angle in this gear':disc==='drag'?'Car pulls hard then goes flat — engine runs out of revs before the next shift':disc==='rally'?'Car loses momentum, engine feels flat or out of pull in this gear':'Car feels sluggish or flat — engine falls out of power in this gear').replace(/"/g,'&quot;')}">?</div>
+      <span style="font-family:var(--font-mono);font-size:9px;color:var(--text-dim);letter-spacing:1px">hover ? for slider guide</span>
+    </div>
+    ${(()=>{
+      const G=T.gearing;
+      const maxR=Math.max(...G.gears);
+      const gAdj = Array.isArray(car.learn.gearAdj) ? car.learn.gearAdj : [];
+
+      const leftLabel  = disc==='drift'  ? 'SNAPPY' : disc==='drag' ? 'BOGS'    : disc==='rally' ? 'BOGS'    : 'SNAPPY';
+      const rightLabel = disc==='drift'  ? 'DROPS'  : disc==='drag' ? 'RUNS OUT': disc==='rally' ? 'RUNS OUT': 'DROPS';
+
+      const bars=G.gears.map((r,i)=>{
+        const px=Math.round(8+(r/maxR)*62);
+        const adj = gAdj[i] || 0;
+        const adjLabel = adj===0 ? 'Neutral' : ((Math.abs(adj)<=2?'Slight':Math.abs(adj)<=4?'Moderate':'Strong') + ' — ' + (adj<0 ? (disc==='drag'||disc==='rally'?'bogs':'snappy') : (disc==='drag'||disc==='rally'?'runs out':'drops slide')));
+        return `<div class="gear-slot" style="gap:6px">
+          <div class="gear-label">G${i+1}</div>
+          <div class="gear-bar-wrap"><div class="gear-bar" style="height:${px}px"></div></div>
+          <input type="number" class="tune-val-input" id="tv_g${i+1}" value="${r.toFixed(2)}" step="0.01" style="width:6ch;text-align:center;font-size:10px">
+          <div class="gear-feel-wrap">
+            <div class="gear-feel-labels"><span>${leftLabel}</span><span>${rightLabel}</span></div>
+            <input type="range" class="gear-feel-slider" data-gear="${i}" min="-6" max="6" value="${adj}" step="1">
+            <div class="gear-feel-val" id="gfv_${i}">${adjLabel}</div>
+          </div>
+        </div>`;
+      }).join('');
+      return `<div class="final-drive-row" style="margin-bottom:16px;border-top:none;padding-top:0;border-bottom:1px solid rgba(255,255,255,0.05);padding-bottom:14px">
+        <span class="final-drive-label">Final drive ratio</span>
+        <input type="number" class="tune-val-input highlight" id="tv_fd" value="${G.finalDrive.toFixed(2)}" step="0.01" style="width:6ch">
+      </div>
+      <div class="gear-grid" style="grid-template-columns:repeat(${G.gears.length},1fr)">${bars}</div>`;
+    })()}
+  </div>
+  ${changelogHTML}
+  <div class="feedback-panel">
+    <div class="feedback-title">DIAL IT IN</div>
+    <div class="feedback-sub">Drive a few laps then check everything that applies. Each click moves the tune.</div>
+    <div class="feedback-grid">
+      <div class="rot-grid-wrap">
+        <div class="rot-grid-label">${disc==='drift'?'Slide Balance':disc==='drag'?'Launch Balance':'Rotation Balance'}</div>
+        <div style="font-family:var(--font-mono);font-size:8px;color:var(--text-dim);letter-spacing:1px;text-align:center;margin-bottom:8px;opacity:0.7">tap the phase where you felt it — tuner corrects the opposite</div>
+        <div class="rot-grid">
+          <div class="rot-col">
+            <div class="rot-col-head rot-us">${disc==='drag'?'PUSH / BOG':'UNDERSTEER'}</div>
+            ${(()=>{
+              const phases = disc==='drag'
+                ? [['entry','Off the line'],['mid','Mid run'],['exit','Shift point'],['shift','Top end']]
+                : disc==='drift'
+                ? [['entry','On initiation'],['mid','Mid slide'],['exit','On exit'],['shift','Linking clips']]
+                : [['entry','Corner entry'],['mid','Mid corner'],['exit','Corner exit'],['shift','Weight shift']];
+              return phases.map(([k,lbl])=>`<button class="rot-btn rot-btn-us" data-rot="2.5" data-phase="us-${k}" onclick="toggleRotBtn(this)">${lbl}</button>`).join('');
+            })()}
+          </div>
+          <div class="rot-col">
+            <div class="rot-col-head rot-os">${disc==='drag'?'WHEELSPIN':'OVERSTEER'}</div>
+            ${(()=>{
+              const phases = disc==='drag'
+                ? [['entry','Off the line'],['mid','Mid run'],['exit','Shift point'],['shift','Top end']]
+                : disc==='drift'
+                ? [['entry','On initiation'],['mid','Mid slide'],['exit','On exit'],['shift','Linking clips']]
+                : [['entry','Corner entry'],['mid','Mid corner'],['exit','Corner exit'],['shift','Weight shift']];
+              return phases.map(([k,lbl])=>`<button class="rot-btn rot-btn-os" data-rot="-2.5" data-phase="os-${k}" onclick="toggleRotBtn(this)">${lbl}</button>`).join('');
+            })()}
+          </div>
+        </div>
+      </div>
+      <div class="rot-grid-wrap">
+        <div class="rot-grid-label">Ride Feel</div>
+        <div style="font-family:var(--font-mono);font-size:8px;color:var(--text-dim);letter-spacing:1px;text-align:center;margin-bottom:8px;opacity:0.7">tap the phase where you felt it — tuner corrects the opposite</div>
+        <div class="rot-grid">
+          <div class="rot-col">
+            <div class="rot-col-head rot-us">TOO SOFT</div>
+            ${(()=>{
+              const phases = disc==='drag'
+                ? [['launch','On launch'],['mid','Mid run'],['land','After landing'],['speed','At speed']]
+                : disc==='drift'
+                ? [['corner','Cornering'],['entry','On entry'],['bumps','Over bumps'],['speed','High speed']]
+                : disc==='rally'
+                ? [['bumps','Over bumps'],['corner','Cornering'],['brake','Braking'],['speed','High speed']]
+                : [['corner','Cornering'],['brake','Braking'],['bumps','Over bumps'],['speed','High speed']];
+              return phases.map(([k,lbl])=>`<button class="rot-btn rot-btn-us" data-stiff="2.5" data-sphase="soft-${k}" onclick="toggleStiffBtn(this)">${lbl}</button>`).join('');
+            })()}
+          </div>
+          <div class="rot-col">
+            <div class="rot-col-head rot-os">TOO STIFF</div>
+            ${(()=>{
+              const phases = disc==='drag'
+                ? [['launch','On launch'],['mid','Mid run'],['land','After landing'],['speed','At speed']]
+                : disc==='drift'
+                ? [['corner','Cornering'],['entry','On entry'],['bumps','Over bumps'],['speed','High speed']]
+                : disc==='rally'
+                ? [['bumps','Over bumps'],['corner','Cornering'],['brake','Braking'],['speed','High speed']]
+                : [['corner','Cornering'],['brake','Braking'],['bumps','Over bumps'],['speed','High speed']];
+              return phases.map(([k,lbl])=>`<button class="rot-btn rot-btn-os" data-stiff="-2.5" data-sphase="stiff-${k}" onclick="toggleStiffBtn(this)">${lbl}</button>`).join('');
+            })()}
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="check-grid" style="grid-template-columns:1fr 1fr" id="checkGrid">
+      ${(()=>{
+        const checks = {
+          grip: [
+            {id:'ck-traction',text:'Poor traction',sub:'Wheelspin on corner exits'},
+            {id:'ck-brake',text:'Unstable braking',sub:'Wiggles or spins under braking'},
+            {id:'ck-snap',text:'Rear won\'t settle',sub:'Rear steps out and keeps sliding, won\'t hook back'},
+            {id:'ck-midcorner',text:'Loses line mid-corner',sub:'Fine on entry but drifts wide through the apex'},
+            {id:'ck-throttle',text:'Snaps on throttle',sub:'Rear steps out suddenly when you get on power'},
+          ],
+          drift: [
+            {id:'ck-traction',text:'Rear grips too hard',sub:'Can\'t initiate or lose slides too quickly'},
+            {id:'ck-snap',text:'Uncontrollable snap',sub:'Car won\'t stay sideways, spins out suddenly'},
+            {id:'ck-angle',text:'Can\'t get angle',sub:'Not enough rotation even at full lock'},
+            {id:'ck-wobble',text:'Wobbles mid-slide',sub:'Fishtails or hunts side to side during the drift'},
+            {id:'ck-throttle',text:'Kills speed on entry',sub:'Loses too much momentum when breaking traction to initiate'},
+            {id:'ck-loose',text:'Front plows in',sub:'Front pushes wide during linked slides'},
+            {id:'ck-gearpull',text:'Drops out of powerband',sub:'Engine falls flat when shifting during a slide'},
+          ],
+          drag: [
+            {id:'ck-traction',text:'Wheelspin off the line',sub:'Tires spin up instead of hooking'},
+            {id:'ck-front',text:'Front lifts on launch',sub:'Front gets too light and floaty'},
+            {id:'ck-bog',text:'Bogs on launch',sub:'Revs drop too much when you release clutch'},
+            {id:'ck-topend',text:'Runs out of pull',sub:'Car pulls hard then falls flat in top gears'},
+            {id:'ck-brake',text:'Instability at speed',sub:'Drifts or gets squirrely at high speed'},
+            {id:'ck-shift',text:'Shift timing feels off',sub:'Engine falls out of powerband between gears'},
+          ],
+          rally: [
+            {id:'ck-traction',text:'Loose on loose surfaces',sub:'Too much wheelspin on gravel or dirt'},
+            {id:'ck-brake',text:'Unstable braking',sub:'Rear kicks out hard under braking'},
+            {id:'ck-snap',text:'Snaps on rough sections',sub:'Jumps or bumps throw the car off line'},
+            {id:'ck-midcorner',text:'Pushes wide through turns',sub:'Hard to rotate — car plows straight on corner entry or through the apex'},
+            {id:'ck-throttle',text:'Throttle oversteer',sub:'Rear slides out aggressively on power'},
+          ],
+        };
+        return (checks[disc]||checks.grip).map(c=>`
+          <div class="check-item" id="${c.id}" onclick="toggleCheck(this)">
+            <div class="check-box"></div>
+            <div><div class="check-text">${c.text}</div><div class="check-sub">${c.sub}</div></div>
+          </div>`).join('');
+      })()}
+    </div>
+    <button class="btn-feedback" id="feedbackBtn">⚡ APPLY FEEDBACK + REGENERATE</button>
+  </div>`;
+}
+
+function carID(){
+  const y=document.getElementById('year').value.trim();
+  const mk=document.getElementById('make').value.trim();
+  const mo=document.getElementById('model').value.trim();
+  return`${y}_${mk}_${mo}`.replace(/\s+/g,'_').toLowerCase()||'unnamed';
+}
+
+function generate(){
+  const flash=document.getElementById('speedFlash');
+  flash.classList.remove('active'); void flash.offsetWidth; flash.classList.add('active');
+  blast();
+  if(typeof _audio !== 'undefined') _audio.rev();
+
+  const id=carID(), car=Store.get(id);
+
+  // Sync left panel limit inputs → storage before generating
+  // (in case user typed something without triggering onchange)
+  savePanelLimits();
+  const freshCar = Store.get(id); // re-read after save
+
+  const carName=[document.getElementById('year').value.trim(),document.getElementById('make').value.trim(),document.getElementById('model').value.trim()].filter(Boolean).join(' ').toUpperCase();
+  const selHP = parseInt(document.getElementById('horsepower').value) || 0;
+  const selPI = document.getElementById('piClass')?.value || '';
+
+  // Snapshot old values before re-render so we can diff them
+  const oldVals = {};
+  if(_isFeedbackRegen && _lastTune){
+    document.querySelectorAll('.tune-val-input[id^="tv_"]').forEach(el=>{
+      oldVals[el.id] = el.value;
+    });
+  }
+
+  const tune=calcTune(freshCar.learn,selDiscipline,selDrive,selGears,selWeight,freshCar.aeroLimits,freshCar.rideHeight,selHP,selPI);
+  _lastTune = tune;
+  document.getElementById('panelRight').innerHTML=renderTune(tune,carName,selDiscipline,selDrive,freshCar,selWeight,selPI);
+  loadPanelLimits(freshCar);
+  if(libOpen) document.getElementById('libSaveRow').style.display='block';
+
+  // Flash changed values
+  if(_isFeedbackRegen && Object.keys(oldVals).length){
+    document.querySelectorAll('.tune-val-input[id^="tv_"]').forEach(el=>{
+      const prev = oldVals[el.id];
+      if(prev !== undefined && parseFloat(prev) !== parseFloat(el.value)){
+        el.classList.add('val-changed');
+        el.addEventListener('animationend', ()=>el.classList.remove('val-changed'), {once:true});
+      }
+    });
+  }
+  _isFeedbackRegen = false;
+
+  // Ride feel: now uses button grid — no slider to wire
+
+  // Wire per-gear feel sliders — live preview label, store on change
+  const gfLabel=(v, disc)=>{
+    if(v===0) return 'Neutral';
+    const mag = Math.abs(v)<=2?'Slight':Math.abs(v)<=4?'Moderate':'Strong';
+    const leftWord  = disc==='drag'||disc==='rally' ? 'bogs'     : 'snappy';
+    const rightWord = disc==='drag'||disc==='rally' ? 'runs out' : 'drops slide';
+    return mag + ' — ' + (v<0 ? leftWord : rightWord);
+  };
+  document.querySelectorAll('.gear-feel-slider').forEach(sl=>{
+    sl.addEventListener('input',()=>{
+      const gi=+sl.dataset.gear;
+      document.getElementById('gfv_'+gi).textContent=gfLabel(+sl.value, selDiscipline);
+    });
+  });
+
+  document.getElementById('feedbackBtn').addEventListener('click',()=>{
+    if(typeof _audio !== 'undefined') _audio.screech();
+    // Rotation: sum active rot-btn values
+    const balance = [...document.querySelectorAll('.rot-btn[data-rot].active')].reduce((s,b)=>s+(+b.dataset.rot),0);
+    // Ride feel: sum active stiff-btn values
+    const stiff = [...document.querySelectorAll('.rot-btn[data-stiff].active')].reduce((s,b)=>s+(+b.dataset.stiff),0);
+    const clamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
+    // Always re-fetch so we have the latest saved learn state + limits
+    const id=carID(), car=Store.get(id);
+
+    // Bake any manual input edits into car.learn FIRST so they become the
+    // baseline that feedback applies on top of. This means the sliders and
+    // checkboxes are reacting to what the user actually set, not the raw calc.
+    bakeManualEditsIntoLearn(car, selDiscipline, selDrive, selGears, selWeight, selHP, selPI);
+
+    // Snapshot AFTER bake but BEFORE feedback mutations — changelog diffs will
+    // only show what the sliders/checkboxes changed, not the manual edits being absorbed.
+    _prevLearnSnapshot = JSON.parse(JSON.stringify(car.learn));
+
+    // Helpers — check if checkbox exists and is checked
+    const ck = id => { const el=document.getElementById(id); return el && el.classList.contains('checked'); };
+
+    // Universal sliders
+    car.learn.rot   = clamp(car.learn.rot   + balance * 0.85, -8, 8);
+    car.learn.stiff = clamp(car.learn.stiff + stiff   * 0.85, -8, 8);
+    if(!car.learn.snap) car.learn.snap=0;
+
+    // Per-gear feel sliders — accumulate into gearAdj array
+    if(!Array.isArray(car.learn.gearAdj)) car.learn.gearAdj=[];
+    document.querySelectorAll('.gear-feel-slider').forEach(sl=>{
+      const gi=+sl.dataset.gear;
+      const v=+sl.value;
+      if(v!==0){
+        car.learn.gearAdj[gi]=(car.learn.gearAdj[gi]||0)+v;
+        // Clamp each gear adjustment to ±12
+        car.learn.gearAdj[gi]=clamp(car.learn.gearAdj[gi],-12,12);
+      }
+    });
+
+    // Discipline-specific checkbox logic
+    if(selDiscipline === 'grip'){
+      // Poor traction: more grip bias (tire pressures lower, ride height drops for contact patch)
+      if(ck('ck-traction'))  { car.learn.grip  = clamp(car.learn.grip  + 1.2, 0, 8); car.learn.stiff = clamp(car.learn.stiff - 0.4, -8, 8); }
+      // Unstable braking: stiffen front bump, soften rear bump (via brake learn), also add rear snap fix
+      if(ck('ck-brake'))     { car.learn.brake = clamp(car.learn.brake + 1.2, 0, 8); car.learn.snap  = clamp(car.learn.snap  + 0.4, 0, 6); }
+      // Rear won't settle: dedicated snap fix (rear toe-in, front ARB stiffer, rear ARB softer, rear spring softer)
+      if(ck('ck-snap'))      { car.learn.snap  = clamp(car.learn.snap  + 1.5, 0, 6); car.learn.rot   = clamp(car.learn.rot   + 0.5, -8, 8); }
+      // Loses line mid-corner: DISTINCT from understeer slider — targets tire pressures + softening rear relative to front
+      // This is understeer mid-turn, not entry. Fix: more front grip bias, soften rear ARB relative to front.
+      if(ck('ck-midcorner')) { car.learn.grip  = clamp(car.learn.grip  + 0.8, 0, 8); car.learn.rot   = clamp(car.learn.rot   - 0.6, -8, 8); car.learn.stiff = clamp(car.learn.stiff - 0.3, -8, 8); }
+      // Snaps on throttle: primary snap fix + soften rear spring relative to front
+      if(ck('ck-throttle'))  { car.learn.snap  = clamp(car.learn.snap  + 1.0, 0, 6); car.learn.grip  = clamp(car.learn.grip  + 0.5, 0, 8); }
+    } else if(selDiscipline === 'drift'){
+      // Rear grips too hard: less grip bias (higher tire pressure rear = less contact)
+      if(ck('ck-traction'))  { car.learn.grip  = clamp(car.learn.grip  - 1.2, -6, 0); car.learn.rot   = clamp(car.learn.rot   + 0.5, -8, 8); }
+      // Uncontrollable snap: stabilize rear — raise rear tire pressure, stiffen suspension, pull rot back, add brake bias forward, reduce diff lock
+      if(ck('ck-snap'))      { car.learn.stiff = clamp(car.learn.stiff + 1.5, -8, 8); car.learn.rot   = clamp(car.learn.rot   - 1.5, -8, 8); car.learn.brake = clamp(car.learn.brake + 1.0, 0, 8); car.learn.grip  = clamp(car.learn.grip  + 1.0, -6, 0); }
+      // Can't get angle: more rotation (front ARB stiffer, rear ARB softer, final drive shorter)
+      if(ck('ck-angle'))     { car.learn.rot   = clamp(car.learn.rot   + 1.8, -8, 8); car.learn.grip  = clamp(car.learn.grip  - 0.5, -6, 0); }
+      // Wobbles mid-slide: stiffen overall, reduce rotation slightly for more predictable pendulum
+      if(ck('ck-wobble'))    { car.learn.stiff = clamp(car.learn.stiff + 1.2, -8, 8); car.learn.rot   = clamp(car.learn.rot   - 0.6, -8, 8); }
+      // Bogs on entry: soften suspension so power hits smoother, widen rear ARB gap
+      if(ck('ck-throttle'))  { car.learn.stiff = clamp(car.learn.stiff - 1.0, -8, 8); car.learn.grip  = clamp(car.learn.grip  - 0.4, -6, 0); }
+      // Front plows in: reduce front-washing by pulling rotation back, stiffen front end
+      if(ck('ck-loose'))     { car.learn.rot   = clamp(car.learn.rot   - 1.2, -8, 8); car.learn.stiff = clamp(car.learn.stiff + 0.4, -8, 8); }
+      // Mid-gear feels weak: tighten the middle of the gear stack so power stays in the band
+      if(ck('ck-gearpull'))  { if(!Array.isArray(car.learn.gearAdj))car.learn.gearAdj=[]; const n=_lastTune?_lastTune.gearing.gears.length:6; const mid=Math.floor(n/2); for(let i=Math.max(1,mid-1);i<=Math.min(n-1,mid+1);i++){car.learn.gearAdj[i]=clamp((car.learn.gearAdj[i]||0)-2,-12,12);} }
+    } else if(selDiscipline === 'drag'){
+      // Wheelspin off line: lower tire pressures (grip up), soften FRONT suspension to transfer weight rearward on launch
+      if(ck('ck-traction'))  { car.learn.grip = clamp(car.learn.grip + 1.5, 0, 8); car.learn.rot = clamp(car.learn.rot - 1.0, -8, 8); }
+      // Front lifts on launch: shift brake bias rearward, add rear downforce signal via rot
+      if(ck('ck-front'))     { car.learn.rot   = clamp(car.learn.rot   - 1.5, -8, 8); car.learn.stiff = clamp(car.learn.stiff + 0.5, -8, 8); }
+      // Bogs on launch: shorten final drive and top gears (larger ratio = more torque multiplication)
+      if(ck('ck-bog'))       { if(!Array.isArray(car.learn.gearAdj))car.learn.gearAdj=[]; const n=_lastTune?_lastTune.gearing.gears.length:6; for(let i=Math.max(0,n-2);i<n;i++){car.learn.gearAdj[i]=clamp((car.learn.gearAdj[i]||0)-2,-12,12);} car.learn.grip=clamp(car.learn.grip+0.5,0,8); }
+      // Runs out of pull: lengthen top gears significantly
+      if(ck('ck-topend'))    { if(!Array.isArray(car.learn.gearAdj))car.learn.gearAdj=[]; const n=_lastTune?_lastTune.gearing.gears.length:6; for(let i=Math.max(0,n-2);i<n;i++){car.learn.gearAdj[i]=clamp((car.learn.gearAdj[i]||0)+2,-12,12);} }
+      // Instability at speed: stiffen suspension, shift brake bias forward
+      if(ck('ck-brake'))     { car.learn.brake = clamp(car.learn.brake + 1.5, 0, 8); car.learn.stiff = clamp(car.learn.stiff + 0.6, -8, 8); }
+      // Shift timing feels off: tighten ALL mid-gear spacing, not just a subtle nudge
+      if(ck('ck-shift'))     { if(!Array.isArray(car.learn.gearAdj))car.learn.gearAdj=[]; const n=_lastTune?_lastTune.gearing.gears.length:6; const mid=Math.floor(n/2); for(let i=1;i<mid;i++){car.learn.gearAdj[i]=clamp((car.learn.gearAdj[i]||0)-2,-12,12);} }
+    } else if(selDiscipline === 'rally'){
+      // Loose on loose: grip up (lower pressures), stiffen to stop wallowing
+      if(ck('ck-traction'))  { car.learn.grip  = clamp(car.learn.grip  + 1.2, 0, 8); car.learn.stiff = clamp(car.learn.stiff + 0.4, -8, 8); }
+      // Unstable braking: front brake bias + front bump stiffness
+      if(ck('ck-brake'))     { car.learn.brake = clamp(car.learn.brake + 1.5, 0, 8); car.learn.snap  = clamp(car.learn.snap  + 0.5, 0, 6); }
+      // Snaps on rough: SOFTEN suspension so bumps don't upset the car, reduce snap fix to avoid toe fighting it
+      if(ck('ck-snap'))      { car.learn.stiff = clamp(car.learn.stiff - 1.2, -8, 8); car.learn.snap  = clamp(car.learn.snap  + 0.8, 0, 6); }
+      // Pushes wide through turns: combines old understeer + midcorner — reduce rotation, add grip, soften slightly
+      if(ck('ck-midcorner')) { car.learn.grip  = clamp(car.learn.grip  + 1.0, 0, 8); car.learn.rot   = clamp(car.learn.rot   - 1.2, -8, 8); car.learn.stiff = clamp(car.learn.stiff - 0.4, -8, 8); }
+      // Throttle oversteer: snap fix (rear toe-in, stiffen front ARB anchor)
+      if(ck('ck-throttle'))  { car.learn.snap  = clamp(car.learn.snap  + 1.2, 0, 6); car.learn.rot   = clamp(car.learn.rot   + 0.3, -8, 8); }
+    }
+
+    car.iterations=(car.iterations||0)+1;
+
+    // ── Build changelog entry ────────────────────────────────────────────────
+    if(!Array.isArray(car.changelog)) car.changelog=[];
+    const checkedLabels = [];
+    document.querySelectorAll('.check-item.checked .check-text').forEach(el=>checkedLabels.push(el.textContent.trim()));
+    const sliderSummary = [];
+    const activeRotBtns=[...document.querySelectorAll('.rot-btn[data-rot].active')].map(b=>b.textContent.trim());
+    if(activeRotBtns.length && balance !== 0) sliderSummary.push((balance>0?'Understeer':'Oversteer')+': '+activeRotBtns.join(', '));
+    else if(activeRotBtns.length && balance === 0) sliderSummary.push('Rotation: mixed (cancelled out)');
+    const activeStiffBtns=[...document.querySelectorAll('.rot-btn[data-stiff].active')].map(b=>b.textContent.trim());
+    if(activeStiffBtns.length) sliderSummary.push((stiff>0?'Too stiff':'Too soft')+': '+activeStiffBtns.join(', '));
+
+    // Compute human-readable deltas vs previous learn state (already captured before mutations)
+    const prevLearn = _prevLearnSnapshot || {};
+    const learnLabels = {rot:'Rotation',stiff:'Stiffness',grip:'Grip',brake:'Brake Bias',snap:'Snap Fix'};
+    const deltas = [];
+    ['rot','stiff','grip','brake','snap'].forEach(k=>{
+      const prev = prevLearn[k]||0;
+      const next = car.learn[k]||0;
+      const diff = +(next-prev).toFixed(2);
+      if(Math.abs(diff)>=0.05) deltas.push({label:learnLabels[k], diff});
+    });
+    // Gear adjustments delta
+    const prevGearAdj = Array.isArray(prevLearn.gearAdj)?prevLearn.gearAdj:[];
+    const nextGearAdj = Array.isArray(car.learn.gearAdj)?car.learn.gearAdj:[];
+    const gearChanged = nextGearAdj.some((v,i)=>v!==(prevGearAdj[i]||0));
+    if(gearChanged) deltas.push({label:'Gearing', diff: null});
+
+    car.changelog.unshift({
+      iter: car.iterations,
+      checks: [...checkedLabels, ...sliderSummary],
+      deltas
+    });
+    if(car.changelog.length>20) car.changelog.length=20; // keep last 20
+
+    Store.save(id,car);
+    _isFeedbackRegen = true;
+    generate();
+    resetRotBtns();
+    // Clear the manual-edit pending indicator — the bake already absorbed those edits
+    const fbBtn = document.getElementById('feedbackBtn');
+    if(fbBtn){ fbBtn.classList.remove('has-manual-edit'); fbBtn.textContent = '⚡ APPLY FEEDBACK + REGENERATE'; }
+    document.getElementById('appScreen').scrollTo({top:0,behavior:'smooth'});
+  });
+}
+
+function toggleCheck(el){el.classList.toggle('checked');}
+
+function resetLearning(){
+  const id = carID();
+  if(!id || id === '___') return;
+  if(!confirm('Reset all adaptive learning for this car? The base tune will be regenerated from scratch.')) return;
+  const car = Store.get(id);
+  car.learn = {rot:0, stiff:0, grip:0, brake:0, snap:0, gearAdj:[]};
+  car.iterations = 0;
+  car.changelog = [];
+  Store.save(id, car);
+  if(_lastTune) generate();
+}
+
+// saveRideHeight and saveAeroLimits removed — savePanelLimits() handles both
+
+// Save both ride height and aero limits from the left panel inputs
+function savePanelLimits(){
+  const id = carID();
+  if(!id) return;
+  const car = Store.get(id);
+  car.rideHeight = {
+    fMin: document.getElementById('lp_rh_fMin')?.value || '',
+    fMax: document.getElementById('lp_rh_fMax')?.value || '',
+    rMin: document.getElementById('lp_rh_rMin')?.value || '',
+    rMax: document.getElementById('lp_rh_rMax')?.value || '',
+  };
+  car.aeroLimits = {
+    fMin: document.getElementById('lp_ae_fMin')?.value || '',
+    fMax: document.getElementById('lp_ae_fMax')?.value || '',
+    rMin: document.getElementById('lp_ae_rMin')?.value || '',
+    rMax: document.getElementById('lp_ae_rMax')?.value || '',
+  };
+  Store.save(id, car);
+}
+
+// Populate left panel limit inputs from stored car data
+function loadPanelLimits(car){
+  const rh = car.rideHeight || {};
+  const ae = car.aeroLimits || {};
+  const set = (id, val) => { const el=document.getElementById(id); if(el) el.value=val||''; };
+  set('lp_rh_fMin', rh.fMin); set('lp_rh_fMax', rh.fMax);
+  set('lp_rh_rMin', rh.rMin); set('lp_rh_rMax', rh.rMax);
+  set('lp_ae_fMin', ae.fMin); set('lp_ae_fMax', ae.fMax);
+  set('lp_ae_rMin', ae.rMin); set('lp_ae_rMax', ae.rMax);
+}
+
+// ── Audio System (Web Audio API — zero file size) ─────────────────────────────
+
+// ── Rotation button grid ─────────────────────────────────────────────────────
+function toggleRotBtn(btn) {
+  const phase = btn.dataset.phase;
+  const side = phase.startsWith('us-') ? 'us' : 'os';
+  const oppSide = side === 'us' ? 'os' : 'us';
+  const phaseKey = phase.split('-')[1];
+
+  // If clicking an already-active button, deactivate it
+  if (btn.classList.contains('active')) {
+    btn.classList.remove('active');
+    return;
+  }
+
+  // Deactivate the opposite side's same phase (can't be both US and OS at corner entry)
+  const opp = document.querySelector(`.rot-btn-${oppSide}[data-phase="${oppSide}-${phaseKey}"]`);
+  if (opp) opp.classList.remove('active');
+
+  btn.classList.add('active');
+}
+
+// Clear all rot buttons after feedback is applied
+function resetRotBtns() {
+  document.querySelectorAll('.rot-btn.active').forEach(b => b.classList.remove('active'));
+}
+
+function toggleStiffBtn(btn) {
+  const phase = btn.dataset.sphase;
+  const side = phase.startsWith('soft-') ? 'soft' : 'stiff';
+  const oppSide = side === 'soft' ? 'stiff' : 'soft';
+  const phaseKey = phase.split('-')[1];
+
+  if (btn.classList.contains('active')) {
+    btn.classList.remove('active');
+    return;
+  }
+  // Deactivate opposite side same phase
+  const opp = document.querySelector(`.rot-btn[data-sphase="${oppSide}-${phaseKey}"]`);
+  if (opp) opp.classList.remove('active');
+  btn.classList.add('active');
+}
+
+function toggleChangelog(){
+  const list = document.getElementById('changelogList');
+  const btn  = document.getElementById('changelogToggle');
+  if(!list || !btn) return;
+  const expanded = list.classList.toggle('expanded');
+  btn.textContent = expanded ? '▲ COLLAPSE' : `▼ SHOW ALL ITERATIONS`;
+}
+
+// ── Tips / Cheat Sheet ────────────────────────────────────────────────────────
+function toggleTips() {
+  const panel = document.getElementById('tipsPanel');
+  const overlay = document.getElementById('tipsOverlay');
+  const isOpen = panel.classList.contains('open');
+  if (isOpen) { closeTips(); } else {
+    panel.classList.add('open');
+    overlay.classList.add('open');
+  }
+}
+function closeTips() {
+  document.getElementById('tipsPanel').classList.remove('open');
+  document.getElementById('tipsOverlay').classList.remove('open');
+}
+
+let _muted = false;
+function toggleMute() {
+  _muted = !_muted;
+  const btn = document.getElementById('muteBtn');
+  btn.textContent = _muted ? '🔇 SOUND' : '🔊 SOUND';
+  btn.style.opacity = _muted ? '0.45' : '';
+}
+
+const _audio = {
+  ctx: null,
+  get ac() {
+    if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+    return this.ctx;
+  },
+
+  // Generic helper: schedule a node to start/stop cleanly
+  _play(node, gain, start, dur) {
+    if (_muted) return;
+    const g = this.ac.createGain();
+    g.gain.setValueAtTime(gain, start);
+    g.gain.exponentialRampToValueAtTime(0.0001, start + dur);
+    node.connect(g); g.connect(this.ac.destination);
+    node.start(start); node.stop(start + dur + 0.05);
+  },
+
+  // ── UI click — MINI NUKE ──────────────────────────────────────────────────────
+  click() {
+    if (_muted) return;
+    const ac = this.ac, t = ac.currentTime;
+
+    // Shockwave sub-bass thump
+    const sub = ac.createOscillator();
+    sub.type = 'sine';
+    sub.frequency.setValueAtTime(180, t);
+    sub.frequency.exponentialRampToValueAtTime(18, t + 0.35);
+    const gSub = ac.createGain();
+    gSub.gain.setValueAtTime(1.4, t);
+    gSub.gain.exponentialRampToValueAtTime(0.0001, t + 0.35);
+    sub.connect(gSub); gSub.connect(ac.destination);
+    sub.start(t); sub.stop(t + 0.4);
+
+    // White noise explosion burst
+    const bufLen = ac.sampleRate * 0.5;
+    const buf = ac.createBuffer(1, bufLen, ac.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < bufLen; i++) data[i] = (Math.random() * 2 - 1);
+    const noise = ac.createBufferSource(); noise.buffer = buf;
+    const lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1800;
+    const gNoise = ac.createGain();
+    gNoise.gain.setValueAtTime(1.8, t);
+    gNoise.gain.exponentialRampToValueAtTime(0.0001, t + 0.45);
+    noise.connect(lp); lp.connect(gNoise); gNoise.connect(ac.destination);
+    noise.start(t); noise.stop(t + 0.5);
+
+    // Sharp crack transient
+    const crack = ac.createOscillator();
+    crack.type = 'sawtooth';
+    crack.frequency.setValueAtTime(800, t);
+    crack.frequency.exponentialRampToValueAtTime(40, t + 0.06);
+    const gCrack = ac.createGain();
+    gCrack.gain.setValueAtTime(1.2, t);
+    gCrack.gain.exponentialRampToValueAtTime(0.0001, t + 0.06);
+    crack.connect(gCrack); gCrack.connect(ac.destination);
+    crack.start(t); crack.stop(t + 0.08);
+
+    // High debris shimmer
+    const shimmer = ac.createOscillator();
+    shimmer.type = 'sine';
+    shimmer.frequency.setValueAtTime(3200, t + 0.02);
+    shimmer.frequency.exponentialRampToValueAtTime(600, t + 0.4);
+    const gShim = ac.createGain();
+    gShim.gain.setValueAtTime(0.0001, t + 0.02);
+    gShim.gain.linearRampToValueAtTime(0.35, t + 0.05);
+    gShim.gain.exponentialRampToValueAtTime(0.0001, t + 0.4);
+    shimmer.connect(gShim); gShim.connect(ac.destination);
+    shimmer.start(t + 0.02); shimmer.stop(t + 0.45);
+  },
+
+  // ── Pill / toggle select — slightly lower softer click ───────────────────────
+  select() {
+    const ac = this.ac, t = ac.currentTime;
+    const o = ac.createOscillator();
+    o.type = 'sine'; o.frequency.setValueAtTime(900, t);
+    o.frequency.exponentialRampToValueAtTime(500, t + 0.055);
+    this._play(o, 0.14, t, 0.055);
+  },
+
+  // ── Tire screech — filtered noise burst ──────────────────────────────────────
+  screech() {
+    if (_muted) return;
+    const ac = this.ac, t = ac.currentTime;
+    const buf = ac.createBuffer(1, ac.sampleRate * 0.55, ac.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1);
+    const src = ac.createBufferSource(); src.buffer = buf;
+    const bp = ac.createBiquadFilter(); bp.type = 'bandpass';
+    bp.frequency.setValueAtTime(3800, t);
+    bp.frequency.exponentialRampToValueAtTime(1800, t + 0.55);
+    bp.Q.value = 1.8;
+    const g = ac.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.55, t + 0.04);
+    g.gain.setValueAtTime(0.55, t + 0.12);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.55);
+    src.connect(bp); bp.connect(g); g.connect(ac.destination);
+    src.start(t); src.stop(t + 0.6);
+  },
+
+  // ── Engine rev on generate ────────────────────────────────────────────────────
+  rev() {
+    if (_muted) return;
+    const ac = this.ac, t = ac.currentTime;
+
+    // Low exhaust thump
+    const sub = ac.createOscillator();
+    sub.type = 'sawtooth';
+    sub.frequency.setValueAtTime(55, t);
+    sub.frequency.exponentialRampToValueAtTime(110, t + 0.18);
+    this._play(sub, 0.28, t, 0.22);
+
+    // Main engine tone sweeping up
+    const eng = ac.createOscillator();
+    eng.type = 'sawtooth';
+    eng.frequency.setValueAtTime(120, t + 0.05);
+    eng.frequency.exponentialRampToValueAtTime(680, t + 0.55);
+    const dist = ac.createWaveShaper();
+    const curve = new Float32Array(256);
+    for (let i = 0; i < 256; i++) { const x = (i * 2) / 256 - 1; curve[i] = (Math.PI + 280) * x / (Math.PI + 280 * Math.abs(x)); }
+    dist.curve = curve;
+    const gEng = ac.createGain();
+    gEng.gain.setValueAtTime(0.0001, t + 0.05);
+    gEng.gain.linearRampToValueAtTime(0.32, t + 0.2);
+    gEng.gain.exponentialRampToValueAtTime(0.0001, t + 0.65);
+    eng.connect(dist); dist.connect(gEng); gEng.connect(ac.destination);
+    eng.start(t + 0.05); eng.stop(t + 0.7);
+
+    // High-freq turbo whistle on top
+    const turbo = ac.createOscillator();
+    turbo.type = 'sine';
+    turbo.frequency.setValueAtTime(2200, t + 0.3);
+    turbo.frequency.exponentialRampToValueAtTime(3800, t + 0.62);
+    this._play(turbo, 0.09, t + 0.3, 0.38);
+  },
+
+  // ── Toyota speed chime — two clean sine tones, pure attack, natural decay ───
+  toyotaChime() {
+    if (_muted) return;
+    const ac = this.ac, t = ac.currentTime;
+    const chime = (time) => {
+      const o = ac.createOscillator();
+      o.type = 'sine';
+      o.frequency.setValueAtTime(2300, time);
+      const g = ac.createGain();
+      g.gain.setValueAtTime(0.0001, time);
+      g.gain.linearRampToValueAtTime(0.55, time + 0.008); // near-instant attack
+      g.gain.exponentialRampToValueAtTime(0.0001, time + 0.18); // natural ring decay
+      // Faint high overtone for that slightly metallic quality
+      const o2 = ac.createOscillator();
+      o2.type = 'sine';
+      o2.frequency.setValueAtTime(4600, time);
+      const g2 = ac.createGain();
+      g2.gain.setValueAtTime(0.0001, time);
+      g2.gain.linearRampToValueAtTime(0.08, time + 0.006);
+      g2.gain.exponentialRampToValueAtTime(0.0001, time + 0.10);
+      o.connect(g); g.connect(ac.destination);
+      o2.connect(g2); g2.connect(ac.destination);
+      o.start(time); o.stop(time + 0.22);
+      o2.start(time); o2.stop(time + 0.14);
+    };
+    chime(t);           // first ding
+    chime(t + 0.22);    // second ding
+  },
+
+  // ── Garage open — mechanical clunk + low metal resonance ────────────────────
+  garage() {
+    if (_muted) return;
+    const ac = this.ac, t = ac.currentTime;
+
+    // Heavy metallic clunk
+    const clunk = ac.createOscillator();
+    clunk.type = 'triangle';
+    clunk.frequency.setValueAtTime(320, t);
+    clunk.frequency.exponentialRampToValueAtTime(80, t + 0.08);
+    this._play(clunk, 0.35, t, 0.1);
+
+    // Low resonant thud underneath
+    const thud = ac.createOscillator();
+    thud.type = 'sine';
+    thud.frequency.setValueAtTime(65, t + 0.02);
+    thud.frequency.exponentialRampToValueAtTime(42, t + 0.22);
+    this._play(thud, 0.28, t + 0.02, 0.22);
+
+    // Short metallic ring tail
+    const ring = ac.createOscillator();
+    ring.type = 'sine';
+    ring.frequency.setValueAtTime(1100, t + 0.06);
+    ring.frequency.exponentialRampToValueAtTime(850, t + 0.4);
+    this._play(ring, 0.06, t + 0.06, 0.36);
+  }
+};
+
+// Hook clicks onto interactive elements
+document.addEventListener('click', e => {
+  if (e.target.closest('.check-item') && typeof _audio !== 'undefined') {
+    _audio.click(); // MINI NUKE for checkboxes
+  } else {
+    const el = e.target.closest('.pill, .side-tab, .home-btn, .header-btn, .btn-back, .rot-btn');
+    if (el && typeof _audio !== 'undefined') _audio.select();
+  }
+});
+
+// ── Library ───────────────────────────────────────────────────────────────────
+const Library = {
+  load(){ try{ return JSON.parse(localStorage.getItem(LIB_KEY)||'{}'); }catch(e){ return {}; } },
+  save(d){ try{ localStorage.setItem(LIB_KEY, JSON.stringify(d)); }catch(e){} },
+  all(){ return this.load(); },
+  saveBuild(carKey, buildName, data){
+    const lib = this.load();
+    if(!lib[carKey]) lib[carKey]={ car: data.car, builds:{} };
+    lib[carKey].builds[buildName] = { data, ts: Date.now() };
+    this.save(lib);
+  },
+  deleteBuild(carKey, buildName){
+    const lib = this.load();
+    if(lib[carKey]){ delete lib[carKey].builds[buildName]; if(!Object.keys(lib[carKey].builds).length) delete lib[carKey]; }
+    this.save(lib);
+  }
+};
+
+// ── Export / Import ───────────────────────────────────────────────────────────
+function showToast(msg, type='success') {
+  let toast = document.getElementById('importToast');
+  if(!toast){
+    toast = document.createElement('div');
+    toast.id = 'importToast';
+    toast.className = 'import-toast';
+    document.body.appendChild(toast);
+  }
+  toast.textContent = msg;
+  toast.className = `import-toast ${type}`;
+  void toast.offsetWidth;
+  toast.classList.add('show');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => toast.classList.remove('show'), 3000);
+}
+
+function exportGarage() {
+  const lib = Library.all();
+  const keys = Object.keys(lib);
+  if(!keys.length) { showToast('No saved builds to export.', 'error'); return; }
+
+  const payload = JSON.stringify({ _fh5tuner: true, version: 2, exported: new Date().toISOString(), data: lib }, null, 2);
+  const blob = new Blob([payload], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const date = new Date().toISOString().slice(0,10);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = `FH5-Garage-${date}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+
+  const buildCount = keys.reduce((n, k) => n + Object.keys(lib[k].builds||{}).length, 0);
+  showToast(`✓ Exported ${buildCount} build${buildCount!==1?'s':''} across ${keys.length} car${keys.length!==1?'s':''}.`, 'success');
+}
+
+function importGarage(event) {
+  const file = event.target.files[0];
+  if(!file) return;
+  // Reset so the same file can be re-imported if needed
+  event.target.value = '';
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const parsed = JSON.parse(e.target.result);
+
+      // Validate it's an FH5 Tuner export
+      if(!parsed._fh5tuner || !parsed.data) {
+        showToast('✕ Not a valid FH5 Tuner garage file.', 'error');
+        return;
+      }
+
+      const incoming = parsed.data;
+      const existing = Library.all();
+
+      // Merge — incoming builds are added; conflicts (same car + build name) keep existing
+      let added = 0, skipped = 0;
+      Object.entries(incoming).forEach(([carKey, carEntry]) => {
+        if(!existing[carKey]) {
+          existing[carKey] = { car: carEntry.car, builds: {} };
+        }
+        Object.entries(carEntry.builds||{}).forEach(([buildName, buildData]) => {
+          if(existing[carKey].builds[buildName]) {
+            skipped++;
+          } else {
+            existing[carKey].builds[buildName] = buildData;
+            added++;
+          }
+        });
+      });
+
+      Library.save(existing);
+      renderLibrary();
+
+      const msg = skipped > 0
+        ? `✓ Imported ${added} build${added!==1?'s':''}. ${skipped} skipped (name conflict).`
+        : `✓ Imported ${added} build${added!==1?'s':''}.`;
+      showToast(msg, 'success');
+
+    } catch(err) {
+      showToast('✕ Failed to read file — is it valid JSON?', 'error');
+    }
+  };
+  reader.readAsText(file);
+}
+
+function toggleEngineSwap(){
+  _engineSwap = !_engineSwap;
+  const tog = document.getElementById('libSwapToggle');
+  const box = document.getElementById('libSwapBox');
+  if(tog) tog.classList.toggle('swapped', _engineSwap);
+  if(box) box.textContent = _engineSwap ? '🔧' : '';
+}
+function openLibrary(){
+  if(typeof _audio !== 'undefined') _audio.garage();
+  libOpen = true;
+  document.getElementById('libOverlay').classList.add('open');
+  document.getElementById('libDrawer').classList.add('open');
+  document.getElementById('libSaveRow').style.display = _lastTune ? 'block' : 'none';
+  renderLibrary();
+  // Attach event delegation once
+  if(!libDelegateAttached){
+    libDelegateAttached = true;
+    document.getElementById('libBody').addEventListener('click', function(e){
+      const loadBtn = e.target.closest('.lib-btn-load');
+      const delBtn  = e.target.closest('.lib-btn-del');
+      if(loadBtn){
+        const carKey = decodeURIComponent(loadBtn.dataset.car);
+        const bn     = decodeURIComponent(loadBtn.dataset.build);
+        loadBuild(carKey, bn);
+      } else if(delBtn){
+        const carKey = decodeURIComponent(delBtn.dataset.car);
+        const bn     = decodeURIComponent(delBtn.dataset.build);
+        if(delBtn.dataset.armed === '1'){
+          Library.deleteBuild(carKey, bn);
+          renderLibrary();
+        } else {
+          delBtn.dataset.armed = '1';
+          delBtn.textContent = 'DEL?';
+          delBtn.style.borderColor = 'var(--red)';
+          delBtn.style.color = 'var(--red)';
+          // Auto-disarm after 3 seconds if not clicked again
+          setTimeout(()=>{
+            if(delBtn && delBtn.dataset.armed === '1'){
+              delBtn.dataset.armed = '0';
+              delBtn.textContent = '✕';
+              delBtn.style.borderColor = '';
+              delBtn.style.color = '';
+            }
+          }, 3000);
+        }
+      }
+    });
+  }
+}
+
+function closeLibrary(){
+  libOpen = false;
+  document.getElementById('libOverlay').classList.remove('open');
+  document.getElementById('libDrawer').classList.remove('open');
+}
+
+function renderLibrary(){
+  const lib = Library.all();
+  const body = document.getElementById('libBody');
+  const keys = Object.keys(lib);
+  if(!keys.length){
+    body.innerHTML = `<div class="lib-empty"><span class="lib-empty-icon">🏎</span>No saved builds yet.<br><br>Generate a tune and save it here.</div>`;
+    return;
+  }
+  body.innerHTML = keys.map(carKey=>{
+    const entry = lib[carKey];
+    const builds = entry.builds||{};
+    const buildKeys = Object.keys(builds).sort((a,b)=>builds[b].ts-builds[a].ts);
+    const totalIter = entry.car?.iterations||0;
+    // Encode keys safely for data attributes
+    const safeCarKey = encodeURIComponent(carKey);
+    return `
+    <div class="lib-car-block">
+      <div class="lib-car-header">
+        <div class="lib-car-name-text">${entry.car?.name||carKey}</div>
+        ${totalIter>0?`<div class="lib-car-iter">${totalIter} iteration${totalIter!==1?'s':''}</div>`:''}
+      </div>
+      <div class="lib-builds">
+        ${buildKeys.map(bn=>{
+          const b=builds[bn];
+          const d=new Date(b.ts);
+          const dateStr=d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+          const safeBn = encodeURIComponent(bn);
+          const notes = b.data?.notes || '';
+          return `
+          <div class="lib-build-row">
+            <div class="lib-build-info">
+              <div class="lib-build-name">${bn}${b.data?.engineSwap ? ' <span style="font-size:10px;color:var(--orange);font-family:var(--font-mono);letter-spacing:1px;border:1px solid rgba(255,106,0,0.4);padding:1px 6px;margin-left:6px">🔧 SWAP</span>' : ''}</div>
+              ${notes ? `<div class="lib-build-notes-text">${notes}</div>` : ''}
+              <div class="lib-build-date">${dateStr} · ${b.data.disc?.toUpperCase()||''} ${b.data.drive||''}</div>
+            </div>
+            <button class="lib-btn lib-btn-load" data-car="${safeCarKey}" data-build="${safeBn}">LOAD</button>
+            <button class="lib-btn lib-btn-del" data-car="${safeCarKey}" data-build="${safeBn}" data-name="${bn.replace(/"/g,'&quot;')}">✕</button>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function saveCurrentBuild() {
+  const id = currentCarId();
+  if (!id) return alert("Select a car first.");
+  if (!_lastTune) return alert("Generate a tune first.");
+
+  const buildName = prompt("Name this build:", "My Build");
+  if (!buildName) return;
+
+  // Duplicate save protection
+  const existingLib = Library.get();
+  if (
+    existingLib[id] &&
+    existingLib[id].builds &&
+    existingLib[id].builds[buildName]
+  ) {
+    const overwrite = confirm(
+      `"${buildName}" already exists for this car.
+
+Do you want to overwrite it?`
+    );
+    if (!overwrite) return;
+  }
+
+  Library.saveBuild(id, buildName, {
+    inputs: collectInputs(),
+    tune: _lastTune,
+    feedback: _lastFeedback
+  });
+
+  alert(`Saved "${buildName}"`);
+  renderGarage();
+}
+
+function freshStart(){
+  if(typeof _audio !== 'undefined') _audio.toyotaChime();
+  document.getElementById('year').value = '';
+  document.getElementById('make').value = '';
+  document.getElementById('model').value = '';
+  // Reset discipline to grip
+  selDiscipline = 'grip';
+  document.querySelectorAll('[data-discipline]').forEach(el => el.classList.toggle('active', el.dataset.discipline === 'grip'));
+  // Reset drive to RWD
+  selDrive = 'RWD';
+  document.querySelectorAll('[data-drive]').forEach(el => el.classList.toggle('active', el.dataset.drive === 'RWD'));
+  // Reset gear count to 6
+  selGears = 6;
+  document.querySelectorAll('[data-gears]').forEach(el => el.classList.toggle('active', +el.dataset.gears === 6));
+  // Reset weight to medium
+  selWeight = 'medium';
+  document.querySelectorAll('[data-weight]').forEach(el => el.classList.toggle('active', el.dataset.weight === 'medium'));
+  // Reset PI class
+  const piEl = document.getElementById('piClass');
+  if(piEl){ piEl.value = ''; }
+  document.getElementById('horsepower').value = '';
+  document.getElementById('horsepower').placeholder = 'e.g. 650';
+  document.getElementById('horsepower').style.borderColor = '';
+  // Reset engine swap
+  _engineSwap = false;
+  // Clear hardware limit inputs
+  loadPanelLimits({rideHeight:{}, aeroLimits:{}});
+  // Reset right panel
+  _lastTune = null;
+  document.getElementById('panelRight').innerHTML = `
+    <div class="empty-state">
+      <div class="empty-icon">HZN</div>
+      <div class="empty-text">▸ Enter car details and generate ◂</div>
+    </div>`;
+  // Focus year field
+  document.getElementById('year').focus();
+}
+
+function loadBuild(carKey, buildName){
+  const lib = Library.all();
+  const build = lib[carKey]?.builds[buildName];
+  if(!build) return;
+  const d = build.data;
+
+  // Restore car fields
+  const parts = (d.car?.name||'').split(' ');
+  if(parts.length>=3){ document.getElementById('year').value=parts[0]; document.getElementById('make').value=parts[1]; document.getElementById('model').value=parts.slice(2).join(' '); }
+
+  // Restore discipline
+  selDiscipline = d.disc||'grip';
+  document.querySelectorAll('[data-discipline]').forEach(el=>{ el.classList.toggle('active', el.dataset.discipline===selDiscipline); });
+
+  // Restore drive
+  selDrive = d.drive||'RWD';
+  document.querySelectorAll('[data-drive]').forEach(el=>{ el.classList.toggle('active', el.dataset.drive===selDrive); });
+
+  // Restore gear count
+  selGears = d.gears||6;
+  document.querySelectorAll('[data-gears]').forEach(el=>{ el.classList.toggle('active', +el.dataset.gears===selGears); });
+
+  // Restore weight
+  selWeight = d.weight||'medium';
+  document.querySelectorAll('[data-weight]').forEach(el=>{ el.classList.toggle('active', el.dataset.weight===selWeight); });
+
+  // Restore PI class
+  const piEl = document.getElementById('piClass');
+  if(piEl) piEl.value = d.piClass || '';
+  onPiClassChange();
+
+  // Restore learning state and hardware limits
+  if(d.learn){ const id=carID(); const stored=Store.get(id); Store.save(id,{learn:d.learn,iterations:d.car?.iterations||stored.iterations,changelog:stored.changelog||[],rideHeight:d.rideHeight||stored.rideHeight||{fMin:'',fMax:'',rMin:'',rMax:''},aeroLimits:d.aeroLimits||stored.aeroLimits||{fMin:'',fMax:'',rMin:'',rMax:''}}); }
+
+  // Populate left panel limit inputs
+  loadPanelLimits({ rideHeight: d.rideHeight||{}, aeroLimits: d.aeroLimits||{} });
+
+  closeLibrary();
+  // Navigate to tuner view if on home screen
+  if(_currentView !== 'tuner') showView('tuner', 'down');
+  generate();
+}
+
+// ── Floating gear tooltip ─────────────────────────────────────────────────────
+(function(){
+  function getTip() { return document.getElementById('gearFloatTip'); }
+
+  function showTip(icon) {
+    const tip = getTip(); if(!tip) return;
+    const g     = icon.dataset.tipGear;
+    const lLbl  = icon.dataset.tipLeft;
+    const rLbl  = icon.dataset.tipRight;
+    const lDesc = icon.dataset.tipLdesc;
+    const rDesc = icon.dataset.tipRdesc;
+    tip.innerHTML = `
+      <div class="gear-tooltip-title">${g==='all'?'Gear Sliders':'G'+g+' Feel'}</div>
+      <div class="gear-tooltip-row">
+        <span class="gear-tooltip-side left">◀ ${lLbl}</span>
+        <span class="gear-tooltip-desc">${lDesc}</span>
+      </div>
+      <div class="gear-tooltip-row">
+        <span class="gear-tooltip-side right">▶ ${rLbl}</span>
+        <span class="gear-tooltip-desc">${rDesc}</span>
+      </div>`;
+    tip.classList.add('visible');
+    positionTip(tip, icon);
+  }
+
+  function positionTip(tip, icon) {
+    const r  = icon.getBoundingClientRect();
+    const tw = tip.offsetWidth;
+    const th = tip.offsetHeight;
+    const pad = 8;
+    let left = r.left + r.width / 2 - tw / 2;
+    let top  = r.top - th - 10;
+    left = Math.max(pad, Math.min(left, window.innerWidth - tw - pad));
+    if (top < pad) top = r.bottom + 10;
+    tip.style.left = left + 'px';
+    tip.style.top  = top  + 'px';
+    const arrowLeft = Math.max(16, Math.min(r.left + r.width/2 - left, tw - 16));
+    tip.style.setProperty('--arrow-left', arrowLeft + 'px');
+  }
+
+  document.addEventListener('mouseover', e => {
+    const icon = e.target.closest('.gear-tooltip-icon');
+    if (icon && icon.dataset.tipGear) showTip(icon);
+  });
+  document.addEventListener('mouseout', e => {
+    if (e.target.closest('.gear-tooltip-icon')) { const tip=getTip(); if(tip) tip.classList.remove('visible'); }
+  });
+})();
+
+
+
+</script>
+
+<!-- Theme Customizer Drawer -->
+<div class="lib-overlay" id="themeOverlay" onclick="closeThemePanel()"></div>
+<div class="lib-drawer" id="themeDrawer" style="width:min(380px,95vw)">
+  <div class="lib-drawer-header">
+    <div class="lib-drawer-title">THEME</div>
+    <button class="lib-close" onclick="closeThemePanel()">✕</button>
+  </div>
+  <div class="lib-body" style="padding:20px 24px;gap:20px">
+    <div class="section-label">Presets</div>
+    <div class="color-preset-grid" id="presetGrid"></div>
+    <div class="divider"></div>
+    <div class="section-label">Custom Colors</div>
+    <div class="color-custom-row">
+      <div class="color-swatch-row">
+        <span class="color-swatch-label">Primary</span>
+        <div class="color-swatch-pick">
+          <input type="color" id="cp_accent" value="#ff1e1e" oninput="applyCustomColor()">
+          <span class="color-hex" id="hex_accent">#ff1e1e</span>
+        </div>
+      </div>
+      <div class="color-swatch-row">
+        <span class="color-swatch-label">Secondary</span>
+        <div class="color-swatch-pick">
+          <input type="color" id="cp_accent2" value="#ff6a00" oninput="applyCustomColor()">
+          <span class="color-hex" id="hex_accent2">#ff6a00</span>
+        </div>
+      </div>
+      <div class="color-swatch-row">
+        <span class="color-swatch-label">Highlight</span>
+        <div class="color-swatch-pick">
+          <input type="color" id="cp_accent3" value="#ffb300" oninput="applyCustomColor()">
+          <span class="color-hex" id="hex_accent3">#ffb300</span>
+        </div>
+      </div>
+    </div>
+    <div class="theme-preview-bar" id="themePreviewBar"></div>
+    <div class="divider"></div>
+    <div class="section-label">Background</div>
+    <div class="color-preset-grid" id="bgPresetGrid"></div>
+  </div>
+</div>
+
+<script>
+// ── Tab System ─────────────────────────────────────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll('.side-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+  document.querySelectorAll('.panel-section').forEach(s => {
+    s.classList.toggle('active', s.id === 'tab-' + name);
+  });
+}
+
+// ── Theme Customizer ──────────────────────────────────────────────────────────
+const COLOR_PRESETS = [
+  { name:'Blaze',    a:'#ff1e1e', b:'#ff6a00', c:'#ffb300' },
+  { name:'Neon',     a:'#00e5ff', b:'#00bfff', c:'#7c3aed' },
+  { name:'Venom',    a:'#39ff14', b:'#00e676', c:'#76ff03' },
+  { name:'Violet',   a:'#d946ef', b:'#a855f7', c:'#f43f5e' },
+  { name:'Ice',      a:'#60a5fa', b:'#38bdf8', c:'#e0f2fe' },
+  { name:'Gold',     a:'#fbbf24', b:'#f59e0b', c:'#fffbeb' },
+  { name:'Rose',     a:'#f43f5e', b:'#fb7185', c:'#fda4af' },
+  { name:'Lime',     a:'#84cc16', b:'#a3e635', c:'#d9f99d' },
+];
+
+const BG_PRESETS = [
+  { name:'Void',   bg:'#04050a', s:'#0a0c14', s2:'#111420' },
+  { name:'Slate',  bg:'#0c0f14', s:'#131820', s2:'#1a2030' },
+  { name:'Forest', bg:'#050a08', s:'#0a1410', s2:'#101d14' },
+  { name:'Deep',   bg:'#08060e', s:'#100c1a', s2:'#180f25' },
+];
+
+let _activePreset = 0;
+let _activeBgPreset = 0;
+
+function buildPresetGrid() {
+  const grid = document.getElementById('presetGrid');
+  grid.innerHTML = COLOR_PRESETS.map((p,i) => `
+    <div class="color-preset ${i===0?'active-preset':''}" data-preset="${i}" 
+         style="background:linear-gradient(135deg,${p.a},${p.b},${p.c})"
+         onclick="applyPreset(${i})">
+      <span class="color-preset-label">${p.name}</span>
+    </div>`).join('');
+
+  const bgGrid = document.getElementById('bgPresetGrid');
+  bgGrid.innerHTML = BG_PRESETS.map((p,i) => `
+    <div class="color-preset ${i===0?'active-preset':''}" data-bgpreset="${i}"
+         style="background:${p.s2};border-color:${i===0?'rgba(255,255,255,0.4)':'rgba(255,255,255,0.07)'}"
+         onclick="applyBgPreset(${i})">
+      <span class="color-preset-label">${p.name}</span>
+    </div>`).join('');
+}
+
+let _currentBg = '#04050a';
+let _currentSurf = '#0a0c14';
+let _currentSurf2 = '#111420';
+
+function applyPreset(i) {
+  _activePreset = i;
+  const p = COLOR_PRESETS[i];
+  document.querySelectorAll('.color-preset[data-preset]').forEach(el => el.classList.toggle('active-preset', +el.dataset.preset === i));
+  document.getElementById('cp_accent').value = p.a;
+  document.getElementById('cp_accent2').value = p.b;
+  document.getElementById('cp_accent3').value = p.c;
+  document.getElementById('hex_accent').textContent = p.a;
+  document.getElementById('hex_accent2').textContent = p.b;
+  document.getElementById('hex_accent3').textContent = p.c;
+  document.getElementById('themePreviewBar').style.background = `linear-gradient(90deg,${p.a},${p.b},${p.c})`;
+  applyFullTheme(p.a, p.b, p.c, _currentBg, _currentSurf, _currentSurf2);
+  updateBurstColors(p.a, p.b, p.c);
+}
+
+function applyBgPreset(i) {
+  _activeBgPreset = i;
+  const p = BG_PRESETS[i];
+  _currentBg = p.bg; _currentSurf = p.s; _currentSurf2 = p.s2;
+  document.querySelectorAll('.color-preset[data-bgpreset]').forEach(el => {
+    el.classList.toggle('active-preset', +el.dataset.bgpreset === i);
+    el.style.borderColor = +el.dataset.bgpreset === i ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.07)';
+  });
+  const a = document.getElementById('cp_accent').value;
+  const b = document.getElementById('cp_accent2').value;
+  const c = document.getElementById('cp_accent3').value;
+  applyFullTheme(a, b, c, p.bg, p.s, p.s2);
+}
+
+function applyCustomColor() {
+  const a = document.getElementById('cp_accent').value;
+  const b = document.getElementById('cp_accent2').value;
+  const c = document.getElementById('cp_accent3').value;
+  document.getElementById('hex_accent').textContent = a;
+  document.getElementById('hex_accent2').textContent = b;
+  document.getElementById('hex_accent3').textContent = c;
+  document.getElementById('themePreviewBar').style.background = `linear-gradient(90deg,${a},${b},${c})`;
+  // Clear active preset since user customized
+  document.querySelectorAll('.color-preset[data-preset]').forEach(el => el.classList.remove('active-preset'));
+  applyFullTheme(a, b, c, _currentBg, _currentSurf, _currentSurf2);
+  updateBurstColors(a, b, c);
+}
+
+function updateBurstColors(a, b, c) {
+  // Patch burst colors globally so new bursts use theme
+  window._burstCols = [a, b, c, a];
+}
+
+function toggleThemePanel() {
+  const drawer = document.getElementById('themeDrawer');
+  const overlay = document.getElementById('themeOverlay');
+  const isOpen = drawer.classList.contains('open');
+  if(isOpen) { closeThemePanel(); } else {
+    drawer.classList.add('open');
+    overlay.classList.add('open');
+  }
+}
+function closeThemePanel() {
+  document.getElementById('themeDrawer').classList.remove('open');
+  document.getElementById('themeOverlay').classList.remove('open');
+}
+
+// ── Dynamic Theme Engine ──────────────────────────────────────────────────────
+// Converts hex to {r,g,b}
+function hexToRgb(hex) {
+  hex = hex.replace('#','');
+  if(hex.length===3) hex=hex.split('').map(x=>x+x).join('');
+  const n = parseInt(hex,16);
+  return { r:(n>>16)&255, g:(n>>8)&255, b:n&255 };
+}
+
+// Interpolate between two hex colors
+function mixHex(a, b, t=0.5) {
+  const ca=hexToRgb(a), cb=hexToRgb(b);
+  return {
+    r:Math.round(ca.r+(cb.r-ca.r)*t),
+    g:Math.round(ca.g+(cb.g-ca.g)*t),
+    b:Math.round(ca.b+(cb.b-ca.b)*t)
+  };
+}
+
+function rgbStr(c) { return `${c.r},${c.g},${c.b}`; }
+
+// Takes a hex color and returns an r,g,b string
+function rgb(hex) { const c=hexToRgb(hex); return rgbStr(c); }
+
+function applyFullTheme(accent, accent2, accent3, bgHex, surfHex, surf2Hex) {
+  const r1 = rgb(accent), r2 = rgb(accent2), r3 = rgb(accent3);
+  const bgR = rgb(bgHex), sfR = rgb(surfHex), sf2R = rgb(surf2Hex);
+
+  // Update CSS vars
+  const root = document.documentElement;
+  root.style.setProperty('--accent', accent);
+  root.style.setProperty('--accent2', accent2);
+  root.style.setProperty('--accent3', accent3);
+  root.style.setProperty('--red', accent);
+  root.style.setProperty('--orange', accent2);
+  root.style.setProperty('--amber', accent3);
+  root.style.setProperty('--bg', bgHex);
+  root.style.setProperty('--surface', surfHex);
+  root.style.setProperty('--surface2', surf2Hex);
+
+  // Remove old injected theme
+  const old = document.getElementById('dynamic-theme');
+  if(old) old.remove();
+
+  // Inject new theme style that overrides all hardcoded colors
+  const style = document.createElement('style');
+  style.id = 'dynamic-theme';
+  style.textContent = `
+    body { background: ${bgHex}; }
+    .chroma { background: repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(${r1},0.012) 3px,rgba(${r1},0.012) 4px); }
+    .logo { filter: drop-shadow(0 0 12px rgba(${r1},0.5)); background: linear-gradient(90deg,${accent},${accent2},${accent3}); -webkit-background-clip:text; background-clip:text; }
+    .logo-sub { border-left-color: rgba(${r1},0.3); }
+    header::after { background: linear-gradient(90deg,transparent,${accent},${accent2},${accent3},${accent},transparent); }
+    .panel-left::before { background: radial-gradient(ellipse at 50% -20%, rgba(${r1},0.07), transparent 70%); }
+    .side-tab.active { background: rgba(${r1},0.1); border-color: rgba(${r1},0.3); color: ${accent}; box-shadow: 0 0 16px rgba(${r1},0.08), inset 0 0 12px rgba(${r1},0.04); }
+    .panel-section::-webkit-scrollbar-thumb { background: rgba(${r1},0.2); }
+    .section-label { color: ${accent}; }
+    .section-label::after { background: linear-gradient(90deg,rgba(${r1},0.3),transparent); }
+    .field input, .field select { border-color: rgba(${r1},0.18); }
+    .field input:focus, .field select:focus { border-color: ${accent}; box-shadow: 0 0 0 2px rgba(${r1},0.08), 0 0 20px rgba(${r1},0.12); background: rgba(${r1},0.04); }
+    .pill:hover { border-color: rgba(${r1},0.4); }
+    .pill.active { background: rgba(${r1},0.1); border-color: ${accent}; color: ${accent}; box-shadow: 0 0 20px rgba(${r1},0.15), inset 0 0 20px rgba(${r1},0.04); text-shadow: 0 0 10px rgba(${r1},0.7); }
+    .pill.active .pill-weight-range { color: rgba(${r2},0.8); }
+    .btn-generate { background: linear-gradient(135deg,${accent},${accent2}); box-shadow: 0 0 24px rgba(${r1},0.25); }
+    .btn-generate:hover { box-shadow: 0 0 50px rgba(${r1},0.6), 0 0 100px rgba(${r2},0.25); }
+    .divider { background: linear-gradient(90deg,transparent,rgba(${r1},0.18),transparent); }
+    .empty-icon { background: linear-gradient(180deg,rgba(${r1},0.65),rgba(${r1},0.04)); -webkit-background-clip:text; background-clip:text; }
+    @keyframes floatPulse { 0%,100%{filter:drop-shadow(0 0 30px rgba(${r1},0.4))} 50%{filter:drop-shadow(0 0 60px rgba(${r1},0.75))} }
+    .tune-header { border-bottom-color: rgba(${r1},0.12); }
+    .tune-card { background: rgba(${sfR},0.88); border-color: rgba(${r1},0.12); }
+    .tune-card:hover { border-color: rgba(${r1},0.35); box-shadow: 0 0 30px rgba(${r1},0.07); }
+    .tune-card::before { background: linear-gradient(90deg,${accent},${accent2}); box-shadow: 0 0 10px ${accent}; }
+    .tune-card::after { background: radial-gradient(circle,rgba(${r1},0.05),transparent 70%); }
+    .tune-card-title { color: ${accent}; text-shadow: 0 0 10px rgba(${r1},0.4); }
+    .tune-val.highlight { color: ${accent3}; text-shadow: 0 0 10px rgba(${r3},0.45); }
+    .badge-red { border-color: ${accent}; color: ${accent}; background: rgba(${r1},0.07); text-shadow: 0 0 10px rgba(${r1},0.5); }
+    @keyframes badgePulse { 0%,100%{box-shadow:0 0 8px rgba(${r1},0.1)} 50%{box-shadow:0 0 20px rgba(${r1},0.3)} }
+    .badge-amber { border-color: ${accent3}; color: ${accent3}; background: rgba(${r3},0.07); text-shadow: 0 0 8px rgba(${r3},0.4); }
+    .learn-state { background: rgba(${sf2R},0.92); border-color: rgba(${r3},0.12); }
+    .learn-state::before { background: linear-gradient(90deg,transparent,${accent3},transparent); }
+    .learn-state-title { color: ${accent3}; text-shadow: 0 0 8px rgba(${r3},0.35); }
+    .learn-bar-label span:last-child { color: ${accent3}; text-shadow: 0 0 6px rgba(${r3},0.35); }
+    .learn-bar-fill { background: linear-gradient(90deg,${accent3},${accent2}); box-shadow: 0 0 8px rgba(${r3},0.55); }
+    .feedback-panel { background: rgba(${sf2R},0.88); border-color: rgba(${r1},0.12); }
+    .feedback-panel::before { color: rgba(${r1},0.035); }
+    input[type="range"]::-webkit-slider-thumb { background: linear-gradient(135deg,${accent},${accent2}); box-shadow: 0 0 14px rgba(${r1},0.7); }
+    input[type="range"]::-webkit-slider-thumb:hover { box-shadow: 0 0 24px rgba(${r1},1), 0 0 48px rgba(${r2},0.5); }
+    .check-item:hover { border-color: rgba(${r1},0.3); }
+    .check-item.checked { border-color: ${accent}; background: rgba(${r1},0.05); box-shadow: 0 0 15px rgba(${r1},0.07); }
+    .check-item.checked .check-box { background: ${accent}; border-color: ${accent}; box-shadow: 0 0 10px rgba(${r1},0.55); }
+    .tune-val-input { background: rgba(${r1},0.08); border-bottom-color: ${accent}; }
+    .tune-val-input.highlight { color: ${accent3}; }
+    .gear-bar { background: linear-gradient(180deg,${accent},${accent2}); box-shadow: 0 0 8px rgba(${r1},0.4); }
+    .gear-feel-val { color: ${accent3}; text-shadow: 0 0 6px rgba(${r3},0.4); }
+    .gear-feel-slider { accent-color: ${accent}; }
+    .btn-feedback { border-color: rgba(${r1},0.35); color: ${accent}; text-shadow: 0 0 10px rgba(${r1},0.45); }
+    .btn-feedback:hover { background: rgba(${r1},0.07); box-shadow: 0 0 30px rgba(${r1},0.18), inset 0 0 30px rgba(${r1},0.04); border-color: ${accent}; }
+    .changelog-panel { border-color: rgba(${r1},0.12); }
+    .changelog-panel::before { background: linear-gradient(90deg,transparent,${accent},transparent); }
+    .changelog-title { color: ${accent}; text-shadow: 0 0 8px rgba(${r1},0.35); }
+    .changelog-iter { color: ${accent}; background: rgba(${r1},0.08); border-color: rgba(${r1},0.2); }
+    .changelog-delta.neg { border-color: rgba(${r1},0.35); color: ${accent}; background: rgba(${r1},0.06); }
+    .changelog-delta.neutral { border-color: rgba(${r3},0.3); color: ${accent3}; background: rgba(${r3},0.05); }
+    #gearFloatTip { border-color: rgba(${r1},0.3); box-shadow: 0 0 30px rgba(${r1},0.15); }
+    #gearFloatTip::after { border-top-color: rgba(${r1},0.3); }
+    .gear-tooltip-title { color: ${accent}; text-shadow: 0 0 8px rgba(${r1},0.5); }
+    .gear-tooltip-side.left { color: ${accent2}; }
+    .gear-tooltip-side.right { color: ${accent3}; }
+    .rh-input { background: rgba(${r3},0.06); border-bottom-color: rgba(${r3},0.3); color: ${accent3}; }
+    .rh-input:focus { background: rgba(${r3},0.1); }
+    .lib-drawer { background: rgba(6,7,14,0.97); border-left-color: rgba(${r1},0.2); }
+    .lib-drawer-header { background: linear-gradient(180deg,rgba(${r1},0.06),transparent); border-bottom-color: rgba(${r1},0.12); }
+    .lib-drawer-header::after { background: linear-gradient(90deg,transparent,${accent},${accent2},transparent); }
+    .lib-close:hover { border-color: ${accent}; color: ${accent}; box-shadow: 0 0 12px rgba(${r1},0.2); }
+    .lib-body::-webkit-scrollbar-thumb { background: rgba(${r1},0.3); }
+    .lib-car-block { border-color: rgba(${r1},0.1); }
+    .lib-car-block:hover { border-color: rgba(${r1},0.28); }
+    .lib-build-row:hover { background: rgba(${r1},0.04); }
+    .lib-btn-del:hover { border-color: ${accent}; color: ${accent}; }
+    .lib-save-row { border-top-color: rgba(${r1},0.1); }
+    .lib-save-notes { border-color: rgba(${r1},0.12); }
+    .lib-save-notes:focus { border-color: rgba(${r1},0.4); box-shadow: 0 0 0 2px rgba(${r1},0.06); }
+    .lib-swap-toggle:hover { border-color: rgba(${r2},0.4); }
+    .lib-swap-toggle.swapped { border-color: ${accent2}; background: rgba(${r2},0.08); box-shadow: 0 0 12px rgba(${r2},0.15); }
+    .lib-swap-toggle.swapped .lib-swap-box { background: ${accent2}; border-color: ${accent2}; box-shadow: 0 0 8px rgba(${r2},0.55); }
+    .lib-save-input { border-color: rgba(${r1},0.18); }
+    .lib-save-input:focus { border-color: ${accent}; box-shadow: 0 0 0 2px rgba(${r1},0.08); }
+    .lib-save-btn { background: linear-gradient(135deg,${accent},${accent2}); }
+    .lib-save-btn:hover { box-shadow: 0 0 20px rgba(${r1},0.4); }
+    .header-btn { border-color: rgba(${r1},0.25); }
+    .header-btn:hover { border-color: ${accent}; box-shadow: 0 0 12px rgba(${r1},0.15); }
+    .btn-back:hover { border-color: rgba(${r1},0.4); }
+    .btn-reset-learn:hover { border-color: rgba(${r1},0.4); color: ${accent}; }
+    .home-divider { background: linear-gradient(180deg,transparent,rgba(${r1},0.4),transparent); }
+    .home-btn::after { background: linear-gradient(90deg,${accent},${accent2}); box-shadow: 0 0 12px ${accent}; }
+    .home-btn:hover { border-color: rgba(${r1},0.3); box-shadow: 0 20px 60px rgba(0,0,0,0.4), 0 0 40px rgba(${r1},0.08); }
+    .home-btn::before { background: linear-gradient(135deg,rgba(${r1},0.06),transparent); }
+    .home-btn-primary::after { background: linear-gradient(90deg,${accent},${accent2},${accent3}); }
+    .home-logo { background: linear-gradient(135deg,#fff 0%,rgba(255,255,255,0.75) 40%,${accent3} 70%,${accent2} 100%); -webkit-background-clip:text; background-clip:text; }
+    .home-credits-title { color: rgba(${r1},0.5); }
+    .side-tab.active { color: ${accent}; }
+  `;
+  document.head.appendChild(style);
+
+  // Re-draw canvas effects with new color
+  _themeAccent = accent;
+  drawTiremarks();
+}
+
+// Store current theme accent for canvas use
+let _themeAccent = '#ff1e1e';
+
+// Patch drawTiremarks to use current accent
+const _origDrawTiremarks = drawTiremarks;
+drawTiremarks = function() {
+  tCtx.clearRect(0,0,tmCanvas.width,tmCanvas.height);
+  const W=tmCanvas.width, H=tmCanvas.height;
+  const {r,g,b} = hexToRgb(_themeAccent);
+  const marks=[
+    [W*.05,H*.25,W*.55,H*.65],[W*.1,H*.3,W*.6,H*.7],
+    [W*.45,H*.05,W*.95,H*.55],[W*.5,H*.1,W*1,H*.6],
+    [W*.0,H*.55,W*.45,H*1.0],[W*.05,H*.6,W*.5,H*1.05],
+    [W*.3,H*.0,W*.7,H*.4],
+  ];
+  marks.forEach(([x1,y1,x2,y2])=>{
+    const gd=tCtx.createLinearGradient(x1,y1,x2,y2);
+    gd.addColorStop(0,`rgba(${r},${g},${b},0)`);
+    gd.addColorStop(0.25,`rgba(${r},${g},${b},0.9)`);
+    gd.addColorStop(0.75,`rgba(${r},${g},${b},0.9)`);
+    gd.addColorStop(1,`rgba(${r},${g},${b},0)`);
+    tCtx.strokeStyle=gd; tCtx.lineWidth=5;
+    tCtx.beginPath(); tCtx.moveTo(x1,y1); tCtx.lineTo(x2,y2); tCtx.stroke();
+    const dx=y2-y1,dy=-(x2-x1),l=Math.sqrt(dx*dx+dy*dy),nx=dx/l*10,ny=dy/l*10;
+    tCtx.beginPath(); tCtx.moveTo(x1+nx,y1+ny); tCtx.lineTo(x2+nx,y2+ny); tCtx.stroke();
+  });
+};
+
+// Also patch Smoke to use theme color
+Smoke.prototype.draw = function(c) {
+  const {r,g,b} = hexToRgb(_themeAccent);
+  const g2=c.createRadialGradient(this.x,this.y,0,this.x,this.y,this.r);
+  const useTheme = this.hue === 0;
+  if(useTheme) {
+    g2.addColorStop(0,`rgba(${r},${g},${b},${this.op})`);
+    g2.addColorStop(1,`rgba(${Math.round(r*0.4)},${Math.round(g*0.4)},${Math.round(b*0.4)},0)`);
+  } else {
+    g2.addColorStop(0,`hsla(210,55%,35%,${this.op})`);
+    g2.addColorStop(1,`hsla(210,55%,15%,0)`);
+  }
+  c.fillStyle=g2; c.beginPath(); c.arc(this.x,this.y,this.r,0,Math.PI*2); c.fill();
+};
+
+// Initialize theme system
+window._burstCols = ['#ff1e1e','#ff6a00','#ffb300','#ff3300'];
+buildPresetGrid();
+document.getElementById('themePreviewBar').style.background = 'linear-gradient(90deg,#ff1e1e,#ff6a00,#ffb300)';
+// Apply default Blaze theme fully on load
+applyFullTheme('#ff1e1e','#ff6a00','#ffb300','#04050a','#0a0c14','#111420');
+
+</script>
+
+<div id="gearFloatTip"></div>
+
+</body>
+</html>
