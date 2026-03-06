@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Tanners Horizon Tuner v21</title>
+<title>Tanners Horizon Tuner</title>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=JetBrains+Mono:wght@400;600;700&family=Barlow+Condensed:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root {
@@ -221,6 +221,8 @@ header::after {
 .tune-row { display:flex; justify-content:space-between; align-items:baseline; padding:7px 0; border-bottom:1px solid rgba(255,255,255,0.035); }
 .tune-row:last-child{border-bottom:none}
 .tune-key { font-size:12px; color:var(--text-dim); font-weight:400; letter-spacing:0.5px; }
+.tune-key[title] { cursor:help; border-bottom:1px dotted rgba(255,255,255,0.12); transition:color 0.15s, border-color 0.15s; }
+.tune-key[title]:hover { color:var(--text); border-bottom-color:rgba(255,179,0,0.4); }
 .tune-val { font-family:var(--font-mono); font-size:13px; font-weight:700; color:var(--text); letter-spacing:1px; }
 .tune-val.highlight { color:var(--amber); text-shadow:0 0 10px rgba(255,179,0,0.45); }
 
@@ -274,12 +276,31 @@ input[type="range"]::-webkit-slider-thumb:hover { box-shadow:0 0 24px rgba(255,3
 
 /* Changed value flash */
 @keyframes valueChanged {
-  0%   { background:rgba(0,229,255,0.25); color:var(--cyan); box-shadow:0 0 16px rgba(0,229,255,0.6); border-bottom-color:var(--cyan); }
-  60%  { background:rgba(0,229,255,0.08); color:var(--cyan); }
-  100% { background:transparent; color:var(--text); box-shadow:none; border-bottom-color:var(--red); }
+  0%   { background:rgba(255,179,0,0.35); color:#fff; box-shadow:0 0 20px rgba(255,179,0,0.7); border-color:var(--amber); transform:scale(1.06); }
+  40%  { background:rgba(255,179,0,0.18); color:var(--amber); box-shadow:0 0 10px rgba(255,179,0,0.35); transform:scale(1.02); }
+  100% { background:rgba(255,179,0,0.06); color:var(--amber); box-shadow:none; border-color:rgba(255,179,0,0.35); transform:scale(1); }
 }
-.tune-val-input.val-changed { animation: valueChanged 1.4s ease-out forwards; }
-.tune-val-input.highlight.val-changed { animation: valueChanged 1.4s ease-out forwards; color:var(--cyan); }
+@keyframes labelChanged {
+  0%   { color:#fff; text-shadow:0 0 8px rgba(255,179,0,0.9); }
+  60%  { color:var(--amber); text-shadow:0 0 4px rgba(255,179,0,0.4); }
+  100% { color:var(--amber); text-shadow:none; }
+}
+.tune-val-input.val-changed {
+  animation: valueChanged 1.2s ease-out forwards;
+  position: relative; z-index: 1;
+}
+.tune-val-input.highlight.val-changed { animation: valueChanged 1.2s ease-out forwards; }
+.tune-row.row-changed > .tune-key { animation: labelChanged 1.2s ease-out forwards; }
+/* Persistent dirty state — stays until next feedback regen */
+.tune-val-input.val-dirty {
+  color: var(--amber) !important;
+  border-bottom-color: rgba(255,179,0,0.5) !important;
+  background: rgba(255,179,0,0.07) !important;
+  box-shadow: 0 0 8px rgba(255,179,0,0.2) !important;
+}
+.tune-row.row-changed > .tune-key {
+  color: var(--amber) !important;
+}
 
 /* ── Tablet (≤900px) ───────────────────────────────────────────────────────── */
 @media(max-width:900px){
@@ -793,6 +814,62 @@ input[type="range"]::-webkit-slider-thumb:hover { box-shadow:0 0 24px rgba(255,3
 .changelog-delta.pos { border-color:rgba(34,197,94,0.35); color:#22c55e; background:rgba(34,197,94,0.06); }
 .changelog-delta.neg { border-color:rgba(255,30,30,0.35); color:var(--red); background:rgba(255,30,30,0.06); }
 .changelog-delta.neutral { border-color:rgba(255,179,0,0.3); color:var(--amber); background:rgba(255,179,0,0.05); }
+
+/* ── Car info modal ─────────────────────────────────────────────────────────── */
+.car-modal-overlay {
+  position:fixed;inset:0;z-index:2000;
+  background:rgba(0,0,0,0.75);
+  display:flex;align-items:center;justify-content:center;
+  backdrop-filter:blur(4px);
+  animation:fadeIn 0.15s ease;
+}
+.car-modal {
+  background:var(--surface);
+  border:1px solid rgba(255,30,30,0.25);
+  box-shadow:0 0 60px rgba(255,30,30,0.2);
+  padding:28px 24px 20px;
+  width:min(360px,90vw);
+  display:flex;flex-direction:column;gap:14px;
+}
+.car-modal-title {
+  font-family:var(--font-display);
+  font-size:20px;letter-spacing:3px;
+  color:var(--text);margin-bottom:2px;
+}
+.car-modal-sub {
+  font-family:var(--font-mono);font-size:9px;
+  letter-spacing:1.5px;color:var(--text-dim);
+  text-transform:uppercase;margin-top:-8px;
+}
+.car-modal-field { display:flex;flex-direction:column;gap:4px; }
+.car-modal-label {
+  font-family:var(--font-mono);font-size:9px;
+  letter-spacing:2px;color:var(--text-dim);text-transform:uppercase;
+}
+.car-modal-input {
+  background:rgba(17,20,32,0.92);
+  border:1px solid rgba(255,30,30,0.18);
+  color:var(--text);font-family:var(--font-body);
+  font-size:15px;padding:9px 12px;outline:none;
+  transition:border-color 0.2s;
+}
+.car-modal-input:focus { border-color:var(--red); }
+.car-modal-input::placeholder { color:var(--text-dim); }
+.car-modal-actions { display:flex;gap:10px;margin-top:4px; }
+.car-modal-confirm {
+  flex:1;background:linear-gradient(135deg,var(--red),var(--orange));
+  color:#fff;font-family:var(--font-display);font-size:16px;
+  letter-spacing:3px;border:none;padding:10px;cursor:pointer;
+  transition:filter 0.2s;
+}
+.car-modal-confirm:hover { filter:brightness(1.12); }
+.car-modal-cancel {
+  background:transparent;border:1px solid rgba(255,255,255,0.1);
+  color:var(--text-dim);font-family:var(--font-mono);font-size:11px;
+  letter-spacing:1px;padding:10px 16px;cursor:pointer;
+  transition:border-color 0.2s,color 0.2s;
+}
+.car-modal-cancel:hover { border-color:rgba(255,255,255,0.25);color:var(--text); }
 </style>
 </head>
 <body>
@@ -1023,7 +1100,194 @@ input[type="range"]::-webkit-slider-thumb:hover { box-shadow:0 0 24px rgba(255,3
         <div class="section-label">Car Identity</div>
         <div class="row2">
           <div class="field"><label>Year</label><input id="year" placeholder="2020"></div>
-          <div class="field"><label>Make</label><input id="make" placeholder="Nissan"></div>
+          <div class="field"><label>Make</label><input id="make" placeholder="Nissan" list="makes-list" autocomplete="off"><datalist id="makes-list">
+<option value="Abarth">
+<option value="Acura">
+<option value="Alejandra's">
+<option value="Alfa Romeo">
+<option value="Alpine">
+<option value="Alumicraft">
+<option value="AMC">
+<option value="AMG Transport Dynamics">
+<option value="Apollo">
+<option value="Ariel">
+<option value="Ascari">
+<option value="Aston Martin">
+<option value="ATS">
+<option value="Audi">
+<option value="Austin">
+<option value="Austin-Healey">
+<option value="Auto Union">
+<option value="Automobili Pininfarina">
+<option value="Autozam">
+<option value="BAC">
+<option value="Baldwin Motorsports">
+<option value="Bentley">
+<option value="Bertone">
+<option value="BMW">
+<option value="Bowler">
+<option value="Brabham">
+<option value="BRM">
+<option value="Bugatti">
+<option value="Buick">
+<option value="Cadillac">
+<option value="Can-Am">
+<option value="Caparo">
+<option value="Casey Currie Motorsports">
+<option value="Caterham">
+<option value="Chaparral">
+<option value="Chevrolet">
+<option value="Chevron">
+<option value="Chrysler">
+<option value="Chryslus">
+<option value="Citroën">
+<option value="CUPRA">
+<option value="Czinger">
+<option value="Datsun">
+<option value="De Tomaso">
+<option value="DeBerti">
+<option value="DeLorean">
+<option value="Devon">
+<option value="Dodge">
+<option value="Donkervoort">
+<option value="DS Automobiles">
+<option value="Eagle-Weslake">
+<option value="Elemental">
+<option value="Exomotive">
+<option value="Extreme E">
+<option value="Ferrari">
+<option value="FIAT">
+<option value="Ford">
+<option value="Formula Drift">
+<option value="Formula E">
+<option value="Forsberg Racing">
+<option value="Funco Motorsports">
+<option value="Ginetta">
+<option value="GMC">
+<option value="Gordon Murray Automotive">
+<option value="Gumpert">
+<option value="HDT">
+<option value="Hennessey">
+<option value="Hillman">
+<option value="Holden">
+<option value="Honda">
+<option value="Hoonigan">
+<option value="Hot Wheels">
+<option value="HSV">
+<option value="Hudson">
+<option value="Hummer">
+<option value="Hyundai">
+<option value="Infiniti">
+<option value="International">
+<option value="Italdesign">
+<option value="Jaguar">
+<option value="James Bond Edition">
+<option value="Jeep">
+<option value="Jimco">
+<option value="Kenworth">
+<option value="Kia">
+<option value="Koenigsegg">
+<option value="KTM">
+<option value="Lamborghini">
+<option value="Lancia">
+<option value="Land Rover">
+<option value="LEGO Speed Champions">
+<option value="Lexus">
+<option value="Ligier">
+<option value="Lincoln">
+<option value="Local Motors">
+<option value="Lola">
+<option value="Lotus">
+<option value="Lucid">
+<option value="Lynk & Co">
+<option value="Maserati">
+<option value="Matra-Simca">
+<option value="Mazda">
+<option value="McLaren">
+<option value="Mercedes-AMG">
+<option value="Mercedes-Benz">
+<option value="Mercury">
+<option value="Merkur">
+<option value="Meyers">
+<option value="MG">
+<option value="MINI">
+<option value="Mitsubishi">
+<option value="Morgan">
+<option value="Morris">
+<option value="Mosler">
+<option value="Napier">
+<option value="NIO">
+<option value="Nissan">
+<option value="Noble">
+<option value="Oldsmobile">
+<option value="Opel">
+<option value="Oreca">
+<option value="Pagani">
+<option value="Panoz">
+<option value="Peel">
+<option value="Penhall">
+<option value="Peugeot">
+<option value="Playground">
+<option value="Plymouth">
+<option value="Polaris">
+<option value="Pontiac">
+<option value="Porsche">
+<option value="Proto Motors">
+<option value="Quadra">
+<option value="Quartz">
+<option value="Radical">
+<option value="RAESR">
+<option value="Ram">
+<option value="Reliant">
+<option value="Renault">
+<option value="Rimac">
+<option value="Rivian">
+<option value="RJ Anderson">
+<option value="Robby Gordon">
+<option value="Rolls-Royce">
+<option value="Rossion">
+<option value="Rover">
+<option value="RUF">
+<option value="Saab">
+<option value="Saleen">
+<option value="Saturn">
+<option value="Schuppan">
+<option value="Scion">
+<option value="SEAT">
+<option value="Shelby">
+<option value="SIERRA Cars">
+<option value="Smart">
+<option value="Spada Vetture Sport">
+<option value="Spania GTA">
+<option value="Spyker">
+<option value="SRT">
+<option value="SSC">
+<option value="SUBARU">
+<option value="Sunbeam">
+<option value="Suzuki">
+<option value="Talbot">
+<option value="Tamo">
+<option value="Terradyne">
+<option value="Tesla">
+<option value="Top Gear">
+<option value="Toyota">
+<option value="Triumph">
+<option value="TVR">
+<option value="Ultima">
+<option value="Universal Studios">
+<option value="Vauxhall">
+<option value="Viper">
+<option value="Volkswagen">
+<option value="Volvo">
+<option value="VUHL">
+<option value="W Motors">
+<option value="Watson">
+<option value="Wiesmann">
+<option value="Willys">
+<option value="Wuling">
+<option value="Xpeng">
+<option value="Zenvo">
+</datalist></div>
         </div>
         <div class="field"><label>Model</label><input id="model" placeholder="GT-R Nismo"></div>
         <div class="row2" style="margin-top:4px">
@@ -1127,8 +1391,13 @@ input[type="range"]::-webkit-slider-thumb:hover { box-shadow:0 0 24px rgba(255,3
         <div style="font-family:var(--font-mono);font-size:8px;color:var(--text-dim);letter-spacing:1px;margin-bottom:10px;line-height:1.5">Enter your car's min/max from the in-game aero screen.</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
           <div>
-            <div style="font-family:var(--font-mono);font-size:8px;letter-spacing:2px;color:rgba(255,179,0,0.7);text-transform:uppercase;margin-bottom:6px">Front</div>
-            <div class="rh-range-inputs">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+              <div style="font-family:var(--font-mono);font-size:8px;letter-spacing:2px;color:rgba(255,179,0,0.7);text-transform:uppercase">Front</div>
+              <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-family:var(--font-mono);font-size:8px;letter-spacing:1px;color:var(--text-dim)">
+                <input type="checkbox" id="lp_ae_fDisable" onchange="onAeroDisableChange()" style="accent-color:var(--red);cursor:pointer"> N/A
+              </label>
+            </div>
+            <div class="rh-range-inputs" id="lp_ae_fInputs">
               <input type="number" class="rh-input" id="lp_ae_fMin" placeholder="min" step="1" onchange="savePanelLimits()">
               <span class="rh-range-sep">—</span>
               <input type="number" class="rh-input" id="lp_ae_fMax" placeholder="max" step="1" onchange="savePanelLimits()">
@@ -1136,8 +1405,13 @@ input[type="range"]::-webkit-slider-thumb:hover { box-shadow:0 0 24px rgba(255,3
             </div>
           </div>
           <div>
-            <div style="font-family:var(--font-mono);font-size:8px;letter-spacing:2px;color:rgba(255,179,0,0.7);text-transform:uppercase;margin-bottom:6px">Rear</div>
-            <div class="rh-range-inputs">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+              <div style="font-family:var(--font-mono);font-size:8px;letter-spacing:2px;color:rgba(255,179,0,0.7);text-transform:uppercase">Rear</div>
+              <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-family:var(--font-mono);font-size:8px;letter-spacing:1px;color:var(--text-dim)">
+                <input type="checkbox" id="lp_ae_rDisable" onchange="onAeroDisableChange()" style="accent-color:var(--red);cursor:pointer"> N/A
+              </label>
+            </div>
+            <div class="rh-range-inputs" id="lp_ae_rInputs">
               <input type="number" class="rh-input" id="lp_ae_rMin" placeholder="min" step="1" onchange="savePanelLimits()">
               <span class="rh-range-sep">—</span>
               <input type="number" class="rh-input" id="lp_ae_rMax" placeholder="max" step="1" onchange="savePanelLimits()">
@@ -1250,40 +1524,57 @@ function drawTiremarks() {
 }
 
 // ── Smoke particles ───────────────────────────────────────────────────────────
+// Pre-bake gradient blobs into offscreen canvases to avoid per-frame radialGradient creation
+const SMOKE_BLOB_SIZE = 256;
+function makeSmokeBlob(hue){
+  const oc = document.createElement('canvas');
+  oc.width = oc.height = SMOKE_BLOB_SIZE;
+  const ox = oc.getContext('2d');
+  const cx = SMOKE_BLOB_SIZE/2;
+  const g = ox.createRadialGradient(cx,cx,0,cx,cx,cx);
+  g.addColorStop(0, `hsla(${hue},55%,35%,0.12)`);
+  g.addColorStop(1, `hsla(${hue},55%,15%,0)`);
+  ox.fillStyle = g;
+  ox.beginPath(); ox.arc(cx,cx,cx,0,Math.PI*2); ox.fill();
+  return oc;
+}
+const smokeBlobs = { 0: makeSmokeBlob(0), 210: makeSmokeBlob(210) };
+
 class Smoke {
-  constructor(){ this.reset(); }
-  reset(){
+  constructor(){ this.reset(true); }
+  reset(init){
     const s=Math.random()<0.5?0:1;
     this.x=s?-60:window.innerWidth+60;
     this.y=window.innerHeight*(0.25+Math.random()*0.75);
-    this.vx=s?(0.2+Math.random()*0.7):-(0.2+Math.random()*0.7);
-    this.vy=-(0.05+Math.random()*0.35);
-    this.r=50+Math.random()*130;
-    this.life=0; this.maxLife=180+Math.random()*280;
-    this.maxOp=0.03+Math.random()*0.07;
+    this.vx=s?(0.2+Math.random()*0.5):-(0.2+Math.random()*0.5);
+    this.vy=-(0.05+Math.random()*0.25);
+    this.r=50+Math.random()*110;
+    this.life=init?Math.random()*240:0;
+    this.maxLife=180+Math.random()*260;
+    this.maxOp=0.55+Math.random()*0.35; // opacity applied via globalAlpha against pre-baked blob
     this.op=0;
     this.hue=Math.random()<0.65?0:210;
   }
   update(){
-    this.life++; this.x+=this.vx; this.y+=this.vy; this.r+=0.25;
+    this.life++; this.x+=this.vx; this.y+=this.vy; this.r+=0.2;
     const p=this.life/this.maxLife;
     this.op=p<0.2?(p/0.2)*this.maxOp:this.maxOp*(1-(p-0.2)/0.8);
-    if(this.life>=this.maxLife)this.reset();
+    if(this.life>=this.maxLife)this.reset(false);
   }
   draw(c){
-    const g=c.createRadialGradient(this.x,this.y,0,this.x,this.y,this.r);
-    g.addColorStop(0,`hsla(${this.hue},55%,35%,${this.op})`);
-    g.addColorStop(1,`hsla(${this.hue},55%,15%,0)`);
-    c.fillStyle=g; c.beginPath(); c.arc(this.x,this.y,this.r,0,Math.PI*2); c.fill();
+    const d=this.r*2;
+    c.globalAlpha=this.op;
+    c.drawImage(smokeBlobs[this.hue], this.x-this.r, this.y-this.r, d, d);
+    c.globalAlpha=1;
   }
 }
 
 class Burst {
   constructor(x,y){
     this.x=x; this.y=y;
-    const a=Math.random()*Math.PI*2, sp=1.5+Math.random()*9;
+    const a=Math.random()*Math.PI*2, sp=1.5+Math.random()*7;
     this.vx=Math.cos(a)*sp; this.vy=Math.sin(a)*sp-1.5;
-    this.r=2+Math.random()*14; this.life=0; this.maxLife=35+Math.random()*45;
+    this.r=2+Math.random()*10; this.life=0; this.maxLife=30+Math.random()*35;
     const cols = window._burstCols || ['#ff1e1e','#ff6a00','#ffb300','#ff3300'];
     this.col=cols[Math.floor(Math.random()*cols.length)];
     this.dead=false;
@@ -1295,28 +1586,34 @@ class Burst {
   }
   draw(c){
     c.globalAlpha=1-this.life/this.maxLife;
-    c.fillStyle=this.col; c.shadowBlur=12; c.shadowColor=this.col;
+    c.fillStyle=this.col;
     c.beginPath(); c.arc(this.x,this.y,this.r,0,Math.PI*2); c.fill();
-    c.shadowBlur=0; c.globalAlpha=1;
+    c.globalAlpha=1;
   }
 }
 
-const smokes=Array.from({length:28},()=>new Smoke());
+const smokes=Array.from({length:16},()=>new Smoke());
 let bursts=[];
 
 function blast(){
   const btn=document.getElementById('generateBtn');
   const r=btn.getBoundingClientRect();
-  for(let i=0;i<70;i++) bursts.push(new Burst(r.left+r.width/2,r.top+r.height/2));
+  for(let i=0;i<40;i++) bursts.push(new Burst(r.left+r.width/2,r.top+r.height/2));
 }
 
-(function loop(){
+// Cap at 30fps to halve GPU load on mid-range devices
+const TARGET_FPS = 30;
+const FRAME_MS = 1000 / TARGET_FPS;
+let _lastFrame = 0;
+(function loop(ts){
+  requestAnimationFrame(loop);
+  if(ts - _lastFrame < FRAME_MS) return;
+  _lastFrame = ts;
   sCtx.clearRect(0,0,smokeCanvas.width,smokeCanvas.height);
   smokes.forEach(p=>{p.update();p.draw(sCtx);});
   bursts=bursts.filter(p=>!p.dead);
   bursts.forEach(p=>{p.update();p.draw(sCtx);});
-  requestAnimationFrame(loop);
-})();
+})(0);
 
 // ── RPM bar ───────────────────────────────────────────────────────────────────
 const rpmBar=document.getElementById('rpmBar');
@@ -1602,8 +1899,10 @@ function calcTune(L,disc,drive,numGears,weight,aeroLimits,rideLimits,hp,piClass)
   const wtAero = wt * 40;
 
   const al = aeroLimits || {};
-  const hasFLimits = al.fMin!==''&&al.fMin!=null&&al.fMax!==''&&al.fMax!=null;
-  const hasRLimits = al.rMin!==''&&al.rMin!=null&&al.rMax!==''&&al.rMax!=null;
+  const hasFLimits = !al.fDisabled && al.fMin!==''&&al.fMin!=null&&al.fMax!==''&&al.fMax!=null&&al.fMin!=='disabled';
+  const hasRLimits = !al.rDisabled && al.rMin!==''&&al.rMin!=null&&al.rMax!==''&&al.rMax!=null&&al.rMin!=='disabled';
+  const fAeroOff = al.fDisabled || false;
+  const rAeroOff = al.rDisabled || false;
 
   if(isDrag){
     // Aero off for drag — reduces drag and improves top speed
@@ -1664,6 +1963,10 @@ function calcTune(L,disc,drive,numGears,weight,aeroLimits,rideLimits,hp,piClass)
       }
     }
   }
+
+  // Force to 0 if user marked as N/A (car has no aero upgrade)
+  if(fAeroOff) fAe = 0;
+  if(rAeroOff) rAe = 0;
 
   // ── Brakes ──────────────────────────────────────────────────────────────────
   // brake learn: moves bias forward. heavy = more front bias to stop the mass.
@@ -1987,37 +2290,41 @@ function renderTune(tune,carName,disc,drive,car,weight,piClass){
   </div>`:''}
   <div class="tune-grid">
     <div class="tune-card"><div class="tune-card-title">Tires</div>
-      <div class="tune-row"><span class="tune-key">Front pressure</span>${ev('fP',T.tires.fP,'PSI',1,true)}</div>
-      <div class="tune-row"><span class="tune-key">Rear pressure</span>${ev('rP',T.tires.rP,'PSI',1,true)}</div>
+      <div class="tune-row"><span class="tune-key" title="Higher = harder, less grip, faster warm-up. Lower = more contact patch, better traction. Target ~32–34 PSI hot.">Front pressure</span>${ev('fP',T.tires.fP,'PSI',1,true)}</div>
+      <div class="tune-row"><span class="tune-key" title="Higher = stiffer rear, more oversteer tendency. Lower = more rear grip and stability.">Rear pressure</span>${ev('rP',T.tires.rP,'PSI',1,true)}</div>
     </div>
     <div class="tune-card"><div class="tune-card-title">Alignment</div>
-      <div class="tune-row"><span class="tune-key">Front camber</span>${ev('fC',T.align.fC,'°',1)}</div>
-      <div class="tune-row"><span class="tune-key">Rear camber</span>${ev('rC',T.align.rC,'°',1)}</div>
-      <div class="tune-row"><span class="tune-key">Front toe</span>${ev('fT',T.align.fT,'',1)}</div>
-      <div class="tune-row"><span class="tune-key">Rear toe</span>${ev('rT',T.align.rT,'',1)}</div>
-      <div class="tune-row"><span class="tune-key">Caster</span>${ev('cas',T.align.cas,'°',1)}</div>
+      <div class="tune-row"><span class="tune-key" title="Negative camber tilts the top of the wheel inward. Improves cornering grip but hurts straight-line traction.">Front camber</span>${ev('fC',T.align.fC,'°',1)}</div>
+      <div class="tune-row"><span class="tune-key" title="Rear negative camber improves mid-corner stability. Too much causes tyre wear and straight-line drag.">Rear camber</span>${ev('rC',T.align.rC,'°',1)}</div>
+      <div class="tune-row"><span class="tune-key" title="Toe-out (positive) = more turn-in response but less stability. Toe-in (negative) = more stable, slower steering.">Front toe</span>${ev('fT',T.align.fT,'',1)}</div>
+      <div class="tune-row"><span class="tune-key" title="Rear toe-in (negative) = more stable, less rotation. Toe-out = more rotation, snap oversteer risk.">Rear toe</span>${ev('rT',T.align.rT,'',1)}</div>
+      <div class="tune-row"><span class="tune-key" title="Higher caster increases straight-line stability and camber gain in corners. Most cars run 5–7°.">Caster</span>${ev('cas',T.align.cas,'°',1)}</div>
     </div>
     <div class="tune-card"><div class="tune-card-title">Anti-Roll Bars</div>
-      <div class="tune-row"><span class="tune-key">Front ARB</span>${ev('fA',T.arb.fA,'',1,true)}</div>
-      <div class="tune-row"><span class="tune-key">Rear ARB</span>${ev('rA',T.arb.rA,'',1,true)}</div>
+      <div class="tune-row"><span class="tune-key" title="Anti-roll bar — higher = less body roll, more understeer. Lower = more body roll, more oversteer.">Front ARB</span>${ev('fA',T.arb.fA,'',1,true)}</div>
+      <div class="tune-row"><span class="tune-key" title="Higher rear ARB = less rear roll = more oversteer. Lower = more rear grip in corners.">Rear ARB</span>${ev('rA',T.arb.rA,'',1,true)}</div>
     </div>
     <div class="tune-card"><div class="tune-card-title">Springs & Ride</div>
-      <div class="tune-row"><span class="tune-key">Front spring</span>${ev('fSp',T.springs.fSp,'lb/in',0)}</div>
-      <div class="tune-row"><span class="tune-key">Rear spring</span>${ev('rSp',T.springs.rSp,'lb/in',0)}</div>
-      <div class="tune-row"><span class="tune-key">Front ride height</span>${ev('fRd',T.springs.fRd,'"',1)}</div>
-      <div class="tune-row"><span class="tune-key">Rear ride height</span>${ev('rRd',T.springs.rRd,'"',1)}</div>
+      <div class="tune-row"><span class="tune-key" title="Stiffer springs = less dive under braking, more responsive. Too stiff = loses grip over bumps.">Front spring</span>${ev('fSp',T.springs.fSp,'lb/in',0)}</div>
+      <div class="tune-row"><span class="tune-key" title="Stiffer rear springs = more stable under acceleration. Too stiff = rear skips over bumps.">Rear spring</span>${ev('rSp',T.springs.rSp,'lb/in',0)}</div>
+      <div class="tune-row"><span class="tune-key" title="Lower = less aero drag, lower centre of gravity. Too low = bottoms out. Measured in inches.">Front ride height</span>${ev('fRd',T.springs.fRd,'"',1)}</div>
+      <div class="tune-row"><span class="tune-key" title="Slightly higher rear than front helps aero stability and reduces understeer at speed.">Rear ride height</span>${ev('rRd',T.springs.rRd,'"',1)}</div>
     </div>
     <div class="tune-card"><div class="tune-card-title">Damping</div>
-      <div class="tune-row"><span class="tune-key">Front rebound</span>${ev('fR',T.damp.fR,'',1)}</div>
-      <div class="tune-row"><span class="tune-key">Rear rebound</span>${ev('rR',T.damp.rR,'',1)}</div>
-      <div class="tune-row"><span class="tune-key">Front bump</span>${ev('fB',T.damp.fB,'',1)}</div>
-      <div class="tune-row"><span class="tune-key">Rear bump</span>${ev('rB',T.damp.rB,'',1)}</div>
+      <div class="tune-row"><span class="tune-key" title="Controls how fast the suspension extends after compression. Higher = slower rebound = more grip on bumpy surfaces.">Front rebound</span>${ev('fR',T.damp.fR,'',1)}</div>
+      <div class="tune-row"><span class="tune-key" title="Higher rear rebound slows the rear from bouncing back, improving traction over rough surfaces.">Rear rebound</span>${ev('rR',T.damp.rR,'',1)}</div>
+      <div class="tune-row"><span class="tune-key" title="Controls how fast the suspension compresses. Higher = stiffer over bumps = more responsive but harsher.">Front bump</span>${ev('fB',T.damp.fB,'',1)}</div>
+      <div class="tune-row"><span class="tune-key" title="Higher rear bump = stiffer compression = less squat under acceleration.">Rear bump</span>${ev('rB',T.damp.rB,'',1)}</div>
     </div>
     <div class="tune-card"><div class="tune-card-title">Aero & Brakes</div>
-      <div class="tune-row"><span class="tune-key">Front downforce</span>${ev('fAe',T.aero.fAe,'lb',0)}</div>
-      <div class="tune-row"><span class="tune-key">Rear downforce</span>${ev('rAe',T.aero.rAe,'lb',0)}</div>
-      <div class="tune-row"><span class="tune-key">Brake bias (front)</span>${ev('bb',T.brakes.bb,'%',0,true)}</div>
-      <div class="tune-row"><span class="tune-key">Brake pressure</span>${ev('bp',T.brakes.bp,'%',0)}</div>
+      ${(disc==='drag'&&drive!=='AWD')
+        ? `<div class="tune-row"><span class="tune-key" title="Pushes front tyres into the road at speed. More = more grip but more drag. Set to 0 for max top speed.">Front downforce</span><span class="tune-val" style="color:var(--text-dim);font-size:11px;letter-spacing:1px">N/A — drag</span></div>
+           <div class="tune-row"><span class="tune-key" title="Pushes rear tyres down at speed. Higher rear than front = oversteer. Lower = understeer.">Rear downforce</span><span class="tune-val" style="color:var(--text-dim);font-size:11px;letter-spacing:1px">N/A — drag</span></div>`
+        : `<div class="tune-row"><span class="tune-key" title="Pushes front tyres into the road at speed. More = more grip but more drag. Set to 0 for max top speed.">Front downforce</span>${ev('fAe',T.aero.fAe,'lb',0)}</div>
+           <div class="tune-row"><span class="tune-key" title="Pushes rear tyres down at speed. Higher rear than front = oversteer. Lower = understeer.">Rear downforce</span>${ev('rAe',T.aero.rAe,'lb',0)}</div>`
+      }
+      <div class="tune-row"><span class="tune-key" title="Higher % = more braking force on front = stable under braking. Too high = front locks up.">Brake bias (front)</span>${ev('bb',T.brakes.bb,'%',0,true)}</div>
+      <div class="tune-row"><span class="tune-key" title="Overall brake force multiplier. Higher = stronger brakes. Too high = lock-up and instability.">Brake pressure</span>${ev('bp',T.brakes.bp,'%',0)}</div>
     </div>
   </div>
   <div class="tune-card" style="animation-delay:.36s">
@@ -2207,6 +2514,13 @@ function generate(){
     document.querySelectorAll('.tune-val-input[id^="tv_"]').forEach(el=>{
       oldVals[el.id] = el.value;
     });
+  } else {
+    // Fresh generate — clear all persistent dirty highlights
+    document.querySelectorAll('.tune-val-input.val-dirty').forEach(el=>{
+      el.classList.remove('val-dirty','val-changed');
+      const row = el.closest('.tune-row');
+      if(row) row.classList.remove('row-changed');
+    });
   }
 
   const tune=calcTune(freshCar.learn,selDiscipline,selDrive,selGears,selWeight,freshCar.aeroLimits,freshCar.rideHeight,selHP,selPI);
@@ -2215,13 +2529,22 @@ function generate(){
   loadPanelLimits(freshCar);
   if(libOpen) document.getElementById('libSaveRow').style.display='block';
 
-  // Flash changed values
+  // Flash changed values + persist dirty highlight
   if(_isFeedbackRegen && Object.keys(oldVals).length){
     document.querySelectorAll('.tune-val-input[id^="tv_"]').forEach(el=>{
       const prev = oldVals[el.id];
       if(prev !== undefined && parseFloat(prev) !== parseFloat(el.value)){
+        el.classList.remove('val-changed');
+        void el.offsetWidth; // reflow to restart animation
         el.classList.add('val-changed');
-        el.addEventListener('animationend', ()=>el.classList.remove('val-changed'), {once:true});
+        el.classList.add('val-dirty'); // stays permanently
+        // Also animate the parent row label
+        const row = el.closest('.tune-row');
+        if(row){
+          row.classList.remove('row-changed');
+          void row.offsetWidth;
+          row.classList.add('row-changed');
+        }
       }
     });
   }
@@ -2400,6 +2723,16 @@ function resetLearning(){
 
 // saveRideHeight and saveAeroLimits removed — savePanelLimits() handles both
 
+function onAeroDisableChange(){
+  const fDis = document.getElementById('lp_ae_fDisable')?.checked;
+  const rDis = document.getElementById('lp_ae_rDisable')?.checked;
+  const fInputs = document.getElementById('lp_ae_fInputs');
+  const rInputs = document.getElementById('lp_ae_rInputs');
+  if(fInputs){ fInputs.style.opacity = fDis ? '0.3' : '1'; fInputs.style.pointerEvents = fDis ? 'none' : ''; }
+  if(rInputs){ rInputs.style.opacity = rDis ? '0.3' : '1'; rInputs.style.pointerEvents = rDis ? 'none' : ''; }
+  savePanelLimits();
+}
+
 // Save both ride height and aero limits from the left panel inputs
 function savePanelLimits(){
   const id = carID();
@@ -2411,11 +2744,15 @@ function savePanelLimits(){
     rMin: document.getElementById('lp_rh_rMin')?.value || '',
     rMax: document.getElementById('lp_rh_rMax')?.value || '',
   };
+  const _fDis = document.getElementById('lp_ae_fDisable')?.checked;
+  const _rDis = document.getElementById('lp_ae_rDisable')?.checked;
   car.aeroLimits = {
-    fMin: document.getElementById('lp_ae_fMin')?.value || '',
-    fMax: document.getElementById('lp_ae_fMax')?.value || '',
-    rMin: document.getElementById('lp_ae_rMin')?.value || '',
-    rMax: document.getElementById('lp_ae_rMax')?.value || '',
+    fMin: _fDis ? 'disabled' : (document.getElementById('lp_ae_fMin')?.value || ''),
+    fMax: _fDis ? 'disabled' : (document.getElementById('lp_ae_fMax')?.value || ''),
+    rMin: _rDis ? 'disabled' : (document.getElementById('lp_ae_rMin')?.value || ''),
+    rMax: _rDis ? 'disabled' : (document.getElementById('lp_ae_rMax')?.value || ''),
+    fDisabled: _fDis || false,
+    rDisabled: _rDis || false,
   };
   Store.save(id, car);
 }
@@ -2427,8 +2764,18 @@ function loadPanelLimits(car){
   const set = (id, val) => { const el=document.getElementById(id); if(el) el.value=val||''; };
   set('lp_rh_fMin', rh.fMin); set('lp_rh_fMax', rh.fMax);
   set('lp_rh_rMin', rh.rMin); set('lp_rh_rMax', rh.rMax);
-  set('lp_ae_fMin', ae.fMin); set('lp_ae_fMax', ae.fMax);
-  set('lp_ae_rMin', ae.rMin); set('lp_ae_rMax', ae.rMax);
+  const fDis = ae.fDisabled || false;
+  const rDis = ae.rDisabled || false;
+  const fDisEl = document.getElementById('lp_ae_fDisable');
+  const rDisEl = document.getElementById('lp_ae_rDisable');
+  if(fDisEl) fDisEl.checked = fDis;
+  if(rDisEl) rDisEl.checked = rDis;
+  const fInputs = document.getElementById('lp_ae_fInputs');
+  const rInputs = document.getElementById('lp_ae_rInputs');
+  if(fInputs) fInputs.style.opacity = fDis ? '0.3' : '1';
+  if(rInputs) rInputs.style.opacity = rDis ? '0.3' : '1';
+  if(!fDis){ set('lp_ae_fMin', ae.fMin); set('lp_ae_fMax', ae.fMax); }
+  if(!rDis){ set('lp_ae_rMin', ae.rMin); set('lp_ae_rMax', ae.rMax); }
 }
 
 // ── Audio System (Web Audio API — zero file size) ─────────────────────────────
@@ -2913,11 +3260,84 @@ function renderLibrary(){
   }).join('');
 }
 
+
+function showCarInfoModal(onConfirm) {
+  // Remove any existing modal
+  const existing = document.getElementById('carInfoModal');
+  if (existing) existing.remove();
+
+  const overlay = document.createElement('div');
+  overlay.className = 'car-modal-overlay';
+  overlay.id = 'carInfoModal';
+
+  const _year  = document.getElementById('year').value.trim();
+  const _make  = document.getElementById('make').value.trim();
+  const _model = document.getElementById('model').value.trim();
+
+  overlay.innerHTML = `
+    <div class="car-modal">
+      <div class="car-modal-title">NAME YOUR CAR</div>
+      <div class="car-modal-sub">Fill in missing details to save this build</div>
+      ${!_year  ? `<div class="car-modal-field"><div class="car-modal-label">Year</div><input class="car-modal-input" id="cm_year"  placeholder="e.g. 2020" maxlength="4"></div>` : ''}
+      ${!_make  ? `<div class="car-modal-field"><div class="car-modal-label">Make</div><input class="car-modal-input" id="cm_make"  placeholder="e.g. Nissan" list="makes-list"></div>` : ''}
+      ${!_model ? `<div class="car-modal-field"><div class="car-modal-label">Model</div><input class="car-modal-input" id="cm_model" placeholder="e.g. GT-R Nismo"></div>` : ''}
+      <div class="car-modal-actions">
+        <button class="car-modal-cancel" id="cm_cancel">CANCEL</button>
+        <button class="car-modal-confirm" id="cm_confirm">SAVE BUILD</button>
+      </div>
+    </div>`;
+
+  document.body.appendChild(overlay);
+
+  // Focus first empty input
+  const first = overlay.querySelector('.car-modal-input');
+  if (first) setTimeout(() => first.focus(), 50);
+
+  document.getElementById('cm_cancel').onclick = () => overlay.remove();
+  overlay.onclick = (e) => { if(e.target === overlay) overlay.remove(); };
+
+  document.getElementById('cm_confirm').onclick = () => {
+    const y = document.getElementById('cm_year')?.value.trim()  || document.getElementById('year').value.trim();
+    const m = document.getElementById('cm_make')?.value.trim()  || document.getElementById('make').value.trim();
+    const mo= document.getElementById('cm_model')?.value.trim() || document.getElementById('model').value.trim();
+    if (!y || !m || !mo) {
+      // highlight empty ones
+      ['cm_year','cm_make','cm_model'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el && !el.value.trim()) el.style.borderColor = 'var(--red)';
+      });
+      showToast('Fill in all fields', 'error');
+      return;
+    }
+    // Write values back to main fields
+    document.getElementById('year').value  = y;
+    document.getElementById('make').value  = m;
+    document.getElementById('model').value = mo;
+    overlay.remove();
+    onConfirm();
+  };
+
+  // Allow Enter to confirm
+  overlay.addEventListener('keydown', e => {
+    if (e.key === 'Enter') document.getElementById('cm_confirm').click();
+    if (e.key === 'Escape') overlay.remove();
+  });
+}
+
 function saveCurrentBuild() {
-  const id = currentCarId();
-  if (!id) return showToast("Select a car first.", "error");
   if (!_lastTune) return showToast("Generate a tune first.", "error");
 
+  const _year  = document.getElementById('year').value.trim();
+  const _make  = document.getElementById('make').value.trim();
+  const _model = document.getElementById('model').value.trim();
+
+  // If car fields are missing, show a fill-in modal then continue saving
+  if (!_year || !_make || !_model) {
+    showCarInfoModal(() => saveCurrentBuild());
+    return;
+  }
+
+  const id = carID();
   const nameInput = document.getElementById('libSaveName');
   const notesInput = document.getElementById('libSaveNotes');
   const buildName = (nameInput ? nameInput.value.trim() : '') || 'My Build';
